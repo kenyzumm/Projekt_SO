@@ -1,10 +1,9 @@
+#include "ipc.h"
+
 #include <stdio.h>
 #include <unistd.h>
 
 int debug_mode = 1;
-
-void handle_error(const char* msg, int exit_code);
-void debug(const char* msg);
 
 int main(int argc, char* argv[]) {
     pid_t pids[3] = {-2, -2, -2};
@@ -41,5 +40,7 @@ int main(int argc, char* argv[]) {
                     }
             }
             break;
-    }    
+    }
+
+    
 }

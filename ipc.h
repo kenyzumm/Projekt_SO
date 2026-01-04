@@ -1,7 +1,13 @@
 #ifndef IPC_H
 #define IPC_H
 
-extern int debug_mode = 1;
+#include <stdlib.h>
+
+#define KEY_PATH "ipc.key"
+#define KEY ftok(KEY_PATH, 'A')
+#define MAX_LENGTH 1024
+
+extern int debug_mode;
 
 void init_ipc(void);
 void cleanup_ipc(void);

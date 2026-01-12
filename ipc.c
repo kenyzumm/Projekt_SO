@@ -19,3 +19,5 @@ void debug(const char* msg) {
         printf("[DEBUG]: %s\n", msg);
     }
 }
+
+//test

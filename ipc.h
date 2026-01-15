@@ -19,8 +19,3 @@ void handle_error(const char* msg, int exit_code);
 void debug(const char* msg);
 
 #endif // IPC_H
-       //
-       //
-       // TEST
-       //
-       // dalsze testy

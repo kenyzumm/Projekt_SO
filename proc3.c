@@ -1,5 +1,6 @@
 #include "ipc.h" //rzeczy wspolne dla wszystkich procesow (klucze, kształ danych itp)
 
+
 int debug_mode=1; // tryb debugowania
 int p_read_par; // deskryptor do czytania od procesu rodzica (cos w stylu nr. identyfikacyjnego)
 int p_write_p2; // deskryptor do pisania do procesu 2
@@ -62,16 +63,14 @@ void print_start_info() { // Funkcja informacyjna - dostosowuje komunikaty do tr
 struct shared_data* attach_memory() {
     int shmid=shmget(SHM_KEY, sizeof(struct shared_data), 0666); //Pobieramy ID istniejącej pamięci
     if (shmid==-1) {
-        perror("[P3] shmget failed");
-        exit(1);
+        handle_error("[P3] shmget failed", 1);
     }
     char buf[128];
     sprintf(buf, "[P3] Znaleziono pamięć dzieloną (SHM). ID: %d", shmid);
     debug(buf);
     struct shared_data *shm=(struct shared_data *)shmat(shmid, NULL, 0); // Rzutujemy wynik (void*) na wskaźnik do naszej struktury (struct shared_data*)
     if (shm==(void *)-1) {
-        perror("[P3] shmget failed"); // Sprawdzenie błędu (shmat zwraca (void*)-1 w razie porażki)
-        exit(1); 
+        handle_error("[P3] shmget failed", 1);
     }
     debug("[P3] Pamięć została pomyślnie dołączona.");
     return shm;

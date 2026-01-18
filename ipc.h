@@ -35,4 +35,4 @@ struct shared_data {
     char text[256]; // Bufor na tekst przesyłany między procesami
 };
 
-#endif
+#endif // IPC_H

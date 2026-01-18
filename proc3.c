@@ -1,5 +1,6 @@
 #include "ipc.h" //rzeczy wspolne dla wszystkich procesow (klucze, kształ danych itp)
 
+
 int debug_mode=1; // tryb debugowania
 int p_read_par; // deskryptor do czytania od procesu rodzica (cos w stylu nr. identyfikacyjnego)
 int p_write_p2; // deskryptor do pisania do procesu 2

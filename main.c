@@ -41,6 +41,14 @@ int main(int argc, char* argv[]) {
             }
             break;
     }
+    if (pids[0] > 0 && pids[1] > 0 && pids[2] > 0) {
+        
+        debug("Parent process waiting for children to finish");
+        for (int i = 0; i < 3; i++) {
+            waitpid(pids[i], NULL, 0);
+        }
+        debug("All child processes have finished");
+    }
 
     
 }

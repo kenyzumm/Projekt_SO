@@ -23,10 +23,8 @@ void handler_p3(int sig){
 
 // funkcja walidująca i parsująca argumenty wejściowe
 void validate_and_parse_args(int argc, char* argv[]){
-    if(argc<4){
-        perror("[P3] Za mało argumentów. Oczekiwano: 4");
-        _exit(1); // natychmiastowe zakończenie procesu z kodem błędu
-    }
+    if(argc<4)
+        handle_error("[P3] Za mało argumentów. Oczekiwano: 4", 1);
     p_read_par=atoi(argv[1]); // deskryptor do czytania od procesu rodzica
     p_write_p2=atoi(argv[2]); // deskryptor do pisania do procesu 2
     pid_p2=(pid_t)atoi(argv[3]); // PID procesu 2
@@ -35,18 +33,16 @@ void validate_and_parse_args(int argc, char* argv[]){
     debug(buf);
 }
 
-void setup_signal(){
-    signal(SIGSUSR1, handler_p3); // ustawienie handlera dla sygnału od procesu rodzica (Jeśli przyjdzie do mnie sygnał SIGUSR1, to natychmiast przerwać i uruchomić handler_p3)
+void setup_signals(){
+    signal(SIGUSR1, handler_p3); // ustawienie handlera dla sygnału od procesu rodzica (Jeśli przyjdzie do mnie sygnał SIGUSR1, to natychmiast przerwać i uruchomić handler_p3)
     debug("[P3] Handler dla sygnału SIGUSR1 został pomyślnie ustawiony.");
 }
 
 int get_semaphores(){
     int sem_id=semget(SEM_KEY,3,0666); // semget - (semaphore get) szuka zestawu semaforów, SEM_KEY - klucz do semafora
     // 3 - liczba semaforów w zestawie (EMPTY, FULL, MUTEX), 0666 - uprawnienia (odczyt i zapis dla wszystkich)
-    if(sem_id==-1){
-        perror("[P3] Błąd funkcji semget");
-        _exit(1);
-    }
+    if(sem_id==-1)
+        handle_error("[P3] Błąd funkcji semget", 1);
     char buf[64];
     sprintf(buf, "[P3] Uzyskano dostęp do semaforów. ID: %d", sem_id);
     debug(buf);   
@@ -62,15 +58,14 @@ void print_start_info() { // Funkcja informacyjna - dostosowuje komunikaty do tr
 
 struct shared_data* attach_memory() {
     int shmid=shmget(SHM_KEY, sizeof(struct shared_data), 0666); //Pobieramy ID istniejącej pamięci
-    if (shmid==-1) {
-        handle_error("[P3] shmget failed", 1);
-    }
+    if (shmid==-1) 
+        handle_error("[P3] Błąd shmget", 1);
     char buf[128];
     sprintf(buf, "[P3] Znaleziono pamięć dzieloną (SHM). ID: %d", shmid);
     debug(buf);
     struct shared_data *shm=(struct shared_data *)shmat(shmid, NULL, 0); // Rzutujemy wynik (void*) na wskaźnik do naszej struktury (struct shared_data*)
     if (shm==(void *)-1) {
-        handle_error("[P3] shmget failed", 1);
+        handle_error("[P3] Błąd shmat", 1);
     }
     debug("[P3] Pamięć została pomyślnie dołączona.");
     return shm;

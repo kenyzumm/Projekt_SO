@@ -1,66 +1,102 @@
 #include "ipc.h"
-
-#include <stdio.h>
 #include <unistd.h>
 
-int debug_mode = 1;
 
-int main(int argc, char* argv[]) {
-    pid_t pids[3] = {-2, -2, -2};
+void init(int* sem_id, int* shm_id, int* msg_id);
+int init_semaphores(int number_sems, int* sem_id);
+int init_shared_memory(int* shm_id);
+int init_msg(int* msg_id);
+void clear_all(int* sem_id, int* shm_id, int* msg_id);
 
-    // tworzenie procesow
-    pids[0] = fork();
-    switch (pids[0]) {
-        case -1:
-            handle_error("[PM] fork failed", 1);
-        break;
+int main() {
+    pid_t pid[3] = {-1};
+    int sem_id=-1, shm_id=-1, msg_id=-1;
 
-        case 0:
-            debug("[PM] Child 1 created successfully");
-        break;
+    init(&sem_id, &shm_id, &msg_id);
 
-        default:
-            pids[1] = fork();
-            switch (pids[1]) {
-                case -1:
-                    handle_error("[PM] fork failed", 1);
-                break;
-                case 0:
-                    debug("[PM] Child 2 created successfully");
-                break;
-                default:
-                    pids[2] = fork();
-                    switch (pids[2]) {
-                        case -1:
-                            handle_error("[PM] fork failed", 1);
-                        break;
-                        case 0:
-                            debug("[PM] Child 3 created successfully");
-                        break;
-                    }
-            }
+    int id = -1;
+    for (int i=0; i<3; i++) {
+        pid[i] = fork();
+        if (pid[i] == -1) handle_error("[PM] fork", 1);
+        if (pid[i] == 0) {
+            id = i;
             break;
-    }
-
-    // zastapienie procesow potomnych odpowiednimi funkcjami
-    if (pids[0] == 0) {
-        proc1();
-        _exit(0);
-    } else if (pids[1] == 0) {
-        proc2();
-        _exit(0);
-    } else if (pids[2] == 0) {
-        proc3();
-        _exit(0);
-    }
-
-    // proces rodzica czeka na zakonczenie procesow potomnych
-    if (pids[0] > 0 && pids[1] > 0 && pids[2] > 0) {
-        debug("[PM] Parent process waiting for children to finish");
-        for (int i = 0; i < 3; i++) {
-            waitpid(pids[i], NULL, 0);
         }
-        debug("[PM] All child processes have finished");
+        
     }
+    switch(id) {
+        case 0:
+            execlp("./proc1", NULL);
+        case 1:
+            execlp("./proc2", NULL);
+        case 2:
+            execlp("./proc3", NULL);
+    }
+
+    for (int i=0; i<3; i++) {
+        wait(NULL);
+    }
+
+    clear_all(&sem_id, &shm_id, &msg_id);
+}
+
+void init(int* sem_id, int* shm_id, int* msg_id) {
+    int ec;
+    ec = init_semaphores(3, sem_id);
+    if (ec) {
+        clear_all(sem_id, shm_id, msg_id);
+        handle_error("[PM] semaphores", ec);
+    }
+    ec = init_shared_memory(shm_id);
+    if (ec) {
+        clear_all(sem_id, shm_id, msg_id);
+        handle_error("[PM] shared memory", ec);
+    }
+    ec = init_msg(msg_id);
+    if (ec) {
+        clear_all(sem_id, shm_id, msg_id);
+        handle_error("[PM] message queue", ec);
+    }
+}
+
+int init_semaphores(int number_sems, int* sem_id) {
+    key_t key = KEY;
+    if (key == -1) return 5;
+
+    *sem_id = semget(key, number_sems, IPC_CREAT | 0666);
+    if (*sem_id == -1) return 6;
+
+    union semun arg;
+    arg.val = 1;
+    if (semctl(*sem_id, MUTEX, SETVAL, arg) == -1) return 7;
+    if (semctl(*sem_id, EMPTY, SETVAL, arg) == -1) return 7;
+    arg.val = 0;
+    if (semctl(*sem_id, FULL, SETVAL, arg) == -1) return 7;
+
     return 0;
+}
+
+int init_shared_memory(int* shm_id) {
+    key_t key = KEY;
+    if (key == -1) return 5;
+
+    *shm_id = shmget(key, sizeof(struct shared), IPC_CREAT | 0666);
+    if (*shm_id == -1) return 8;
+
+    return 0;
+}
+
+int init_msg(int* msg_id) {
+    key_t key = KEY;
+    if (key == -1) return 5;
+    *msg_id = msgget(key, IPC_CREAT | 0666);
+    if (*msg_id == -1) return 9;
+
+    return 0;
+}
+
+void clear_all(int* sem_id, int* shm_id, int* msg_id) {
+    if (*sem_id != -1) semctl(*sem_id, 0, IPC_RMID);
+    if (*shm_id != -1) shmctl(*shm_id, IPC_RMID, NULL);
+    if (*msg_id != -1) msgctl(*msg_id, IPC_RMID, NULL);
 }

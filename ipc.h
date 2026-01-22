@@ -67,3 +67,13 @@ int get_msg_queue() {
     if (key == -1) return -1;
     return msgget(key, 0);
 }
+
+void signal() {
+    signal(SIGUSR1, signal_handler);
+    signal(SIGUSR2, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGKILL, signal_handler);
+    signal(SIGINT, signal_handler);
+    signal(SIGTSTP, signal_handler);
+    signal(SIGQUIT, signal_handler);
+}

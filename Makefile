@@ -1,21 +1,23 @@
-# Makefile dla Producer-Consumer IPC
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -g
-LDFLAGS = -lrt  # System V IPC (msgq, shm, sem)
+CC=gcc
+CFLAGS=-Wall -g
 
-# Pliki obiektowe
-OBJS = main.o ipc.o proc1.o proc2.o proc3.o
+TARGETS=main proc1 proc2 proc3
 
-# Główny target
-ipc_proj: $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+all: $(TARGETS)
 
-# Kompilacja plików .c do .o (automatycznie używa ipc.h)
-%.o: %.c ipc.h
-	$(CC) $(CFLAGS) -c $< -o $@
+main: main.c ipc.h
+	$(CC) $(CFLAGS) -o main main.c
 
-# Czyszczenie
+proc1: proc1.c ipc.h
+	$(CC) $(CFLAGS) -o proc1 proc1.c
+
+proc2: proc2.c ipc.h
+	$(CC) $(CFLAGS) -o proc2 proc2.c
+
+proc3: proc3.c ipc.h
+	$(CC) $(CFLAGS) -o proc3 proc3.c
+
 clean:
-	rm -f $(OBJS) ipc_proj ipc.key  # + pliki IPC
+	rm -f *.o
 
-.PHONY: clean debug test install-deps
+.PHONY: all clean

@@ -1,8 +1,21 @@
- pid1 = fork();
+/* 
+
+#define SIG2 = 2 // sygnał od P2 
+
+
+void signalhandler(int sig){
+        printf("Otrzymałem sygnał: %d", sig);
+   } ???
+   */
+
+
+
+
+pid1 = fork();
     if(pid1 == 0) {
         // Kod P1 - konsument
 
-        signal(SIGUSR2, sig_handler); // p1  zeka na sygnal od p2 
+        signal(SIG2, sig_handler); // p1  zeka na sygnal od p2 
         while(1) {
          
             P.sem_num = 0; semop(semid, &P, 1);                //p1 czeka na semafor

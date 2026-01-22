@@ -4,8 +4,17 @@
 
 
 void signalhandler(int sig){
-        printf("Otrzymałem sygnał: %d", sig);
+        printf("\nOtrzymałem sygnał: %d\n", sig);
+        exit(0)
    } ???
+
+
+   void signal_handler(int signum) {
+    printf("\nOdebrano sygnał: %d (SIGINT)\n", signum);
+    printf("Zamykanie programu...\n");
+    exit(0);
+}
+
    */
 
 

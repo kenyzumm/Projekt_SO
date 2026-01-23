@@ -1,12 +1,26 @@
 #include "ipc.h"
 #include <string.h>
 
+int p;
+pid_t p1_id;
+
 void loop(int sem_id, struct shared* shm, int msg_id);
 
 void handle_signal(int sig) {
     switch(sig) {
         case SIGUSR1:
-            // odczytaj pipe
+            char buf[4];
+            read(p, buf, 4);
+
+            int signal;
+            memcpy(&signal, buf, 4);
+            kill(p1_id, SIGUSR1);
+
+            switch (signal) {
+                default:
+                    printf("[P2] Odczytalem sygnal: %d", signal);
+                break;
+            }
         break;
         default:
             kill(getppid(), sig);
@@ -15,6 +29,11 @@ void handle_signal(int sig) {
 }
 
 int main(int argc, char* argv[]) {
+
+    if (argc != 3) return 2134;
+    p = atoi(argv[1]);
+    p1_id = atoi(argv[2]);
+
     int sem_id = get_semaphore();
     if (sem_id == -1) return 1;
     struct shared* shm = get_shared_memory();

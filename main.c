@@ -9,14 +9,9 @@ int init_msg(int* msg_id);
 int init_pipes(int pipes[][2]);
 void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
 void handle_signal(int sig) {
-    switch (sig) {
-        case SIGINT: // wznowienie ctrl c
-        break;
-        case SIGTSTP: // zatrzymanie ctrl z
-        break;
-        case SIGQUIT: // wyjscie ctrl /* \ */
-        break;
-    }
+    char buf[4];
+    memcpy(buf, &sig, 4);
+
 }
 
 int main() {
@@ -39,11 +34,29 @@ int main() {
     }
     switch(id) {
         case 0:
+            close(pipes[PM_P1][WRITE]);
+            close(pipes[PM_P2][READ]);
+            close(pipes[PM_P2][WRITE]);
+            close(pipes[PM_P3][READ]);
+            close(pipes[PM_P3][WRITE]);
             execlp("./proc1", pipes[PM_P1]);
         case 1:
+            close(pipes[PM_P2][WRITE]);
+            close(pipes[PM_P1][READ]);
+            close(pipes[PM_P1][WRITE]);
+            close(pipes[PM_P3][READ]);
+            close(pipes[PM_P3][WRITE]);
             execlp("./proc2", pipes[PM_P2]);
         case 2:
+            close(pipes[PM_P3][WRITE]);
+            close(pipes[PM_P1][READ]);
+            close(pipes[PM_P1][WRITE]);
+            close(pipes[PM_P2][READ]);
+            close(pipes[PM_P2][WRITE]);
             execlp("./proc3", pipes[PM_P3]);
+    }
+    for(int i=PM_P1; i<=PM_P3; i++) {
+        close(pipes[i][READ]);
     }
 
     for (int i=0; i<3; i++) {

@@ -10,7 +10,7 @@ void handle_signal(int sig) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     set_signals(handle_signal);
 
     int msg_id = get_msg_queue();

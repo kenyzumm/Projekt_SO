@@ -39,11 +39,11 @@ int main() {
     }
     switch(id) {
         case 0:
-            execlp("./proc1", NULL);
+            execlp("./proc1", pipes[PM_P1]);
         case 1:
-            execlp("./proc2", NULL);
+            execlp("./proc2", pipes[PM_P2]);
         case 2:
-            execlp("./proc3", NULL);
+            execlp("./proc3", pipes[PM_P3]);
     }
 
     for (int i=0; i<3; i++) {

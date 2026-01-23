@@ -14,7 +14,7 @@ void handle_signal(int sig) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     set_signals(handle_signal);
     int sem_id = get_semaphore();
     if (sem_id == -1) return 1;

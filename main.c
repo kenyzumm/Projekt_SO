@@ -9,9 +9,19 @@ int init_msg(int* msg_id);
 int init_pipes(int pipes[][2]);
 void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
 void handle_signal(int sig) {
-    char buf[4];
-    memcpy(buf, &sig, 4);
-
+    switch (sig) {
+        case SIGINT: // wznowienie ctrl c
+        break;
+        case SIGTSTP: // zatrzymanie ctrl z
+        break;
+        case SIGQUIT: // wyjscie ctrl /* \ */
+            for(int i=0; i<3; i++) {
+                if(pid[i] > 0) kill(pid[i], SIGKILL);
+            }
+            clear_all(&sem_id, &shm_id, &msg_id, pipes);
+            exit(0);
+        break;
+    }
 }
 
 int main() {

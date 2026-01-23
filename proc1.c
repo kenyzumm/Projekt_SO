@@ -11,8 +11,23 @@ void handle_signal(int sig) {
 }
 
 int main(int argc, char* argv[]) {
-    set_signals(handle_signal);
 
+   if (argc != 3 ) {
+    printf("Uzycie: %s <PID>\n", argv[0]);
+    return 1;
+}    
+    
+    int p = atoi(argv[1]);
+
+if (p <= 0) {
+    printf("Niepoprawny PID\n");
+    return 1;
+}
+
+    
+    set_signals(handle_signal);
+    
+    
     int msg_id = get_msg_queue();
     if (msg_id == -1) return 1;
 

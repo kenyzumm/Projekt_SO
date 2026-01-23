@@ -15,6 +15,11 @@ void handle_signal(int sig) {
         case SIGTSTP: // zatrzymanie ctrl z
         break;
         case SIGQUIT: // wyjscie ctrl /* \ */
+            for(int i=0; i<3; i++) {
+                if(pid[i] > 0) kill(pid[i], SIGKILL);
+            }
+            clear_all(&sem_id, &shm_id, &msg_id, pipes);
+            exit(0);
         break;
     }
 }

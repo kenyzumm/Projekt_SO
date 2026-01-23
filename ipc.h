@@ -6,6 +6,12 @@
 
 #define BUFFER_SIZE 1024
 
+#define PM_P1 0
+#define PM_P2 1
+#define PM_P3 2
+#define READ 0
+#define WRITE 1
+
 #define MUTEX 0
 #define EMPTY 1
 #define FULL 2
@@ -68,12 +74,9 @@ int get_msg_queue() {
     return msgget(key, 0);
 }
 
-void signal() {
+int set_signals(int (*signal_handler)(int)) {
     signal(SIGUSR1, signal_handler);
-    signal(SIGUSR2, signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGKILL, signal_handler);
     signal(SIGINT, signal_handler);
-    signal(SIGTSTP, signal_handler);
     signal(SIGQUIT, signal_handler);
+    signal(SIGTSTP, signal_handler);
 }

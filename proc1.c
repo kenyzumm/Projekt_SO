@@ -2,7 +2,17 @@
 
 void loop(int msg_id);
 
+void handle_signal(int sig) {
+    if (sig == SIGUSR1) {
+        // obsluz sygnal
+    } else {
+        printf("[P1] Niepoprawny sygnal\n");
+    }
+}
+
 int main() {
+    set_signals(handle_signal);
+
     int msg_id = get_msg_queue();
     if (msg_id == -1) return 1;
 

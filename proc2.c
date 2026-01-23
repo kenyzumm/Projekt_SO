@@ -3,6 +3,17 @@
 
 void loop(int sem_id, struct shared* shm, int msg_id);
 
+void handle_signal(int sig) {
+    switch(sig) {
+        case SIGUSR1:
+            // odczytaj pipe
+        break;
+        default:
+            kill(getppid(), sig);
+        break;
+    }
+}
+
 int main() {
     int sem_id = get_semaphore();
     if (sem_id == -1) return 1;

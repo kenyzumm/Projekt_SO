@@ -6,7 +6,16 @@
 
 void loop(int sem_id, struct shared* shm);
 
+void handle_signal(int sig) {
+    if (sig == SIGUSR1) {
+        // obluz sygnal
+    } else {
+        printf("[P3] Niepoprawny sygnal\n");
+    }
+}
+
 int main() {
+    set_signals(handle_signal);
     int sem_id = get_semaphore();
     if (sem_id == -1) return 1;
     struct shared* shm = get_shared_memory();

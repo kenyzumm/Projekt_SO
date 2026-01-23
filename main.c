@@ -2,17 +2,30 @@
 #include <unistd.h>
 
 
-void init(int* sem_id, int* shm_id, int* msg_id);
+void init(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
 int init_semaphores(int number_sems, int* sem_id);
 int init_shared_memory(int* shm_id);
 int init_msg(int* msg_id);
-void clear_all(int* sem_id, int* shm_id, int* msg_id);
+int init_pipes(int pipes[][2]);
+void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
+void handle_signal(int sig) {
+    switch (sig) {
+        case SIGINT: // wznowienie ctrl c
+        break;
+        case SIGTSTP: // zatrzymanie ctrl z
+        break;
+        case SIGQUIT: // wyjscie ctrl /* \ */
+        break;
+    }
+}
 
 int main() {
     pid_t pid[3] = {-1};
     int sem_id=-1, shm_id=-1, msg_id=-1;
+    int pipes[3][2];
 
-    init(&sem_id, &shm_id, &msg_id);
+    init(&sem_id, &shm_id, &msg_id, pipes);
+    set_signals(handle_signal);
 
     int id = -1;
     for (int i=0; i<3; i++) {
@@ -37,25 +50,30 @@ int main() {
         wait(NULL);
     }
 
-    clear_all(&sem_id, &shm_id, &msg_id);
+    clear_all(&sem_id, &shm_id, &msg_id, pipes);
 }
 
-void init(int* sem_id, int* shm_id, int* msg_id) {
+void init(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]) {
     int ec;
     ec = init_semaphores(3, sem_id);
     if (ec) {
-        clear_all(sem_id, shm_id, msg_id);
+        clear_all(sem_id, shm_id, msg_id, pipes);
         handle_error("[PM] semaphores", ec);
     }
     ec = init_shared_memory(shm_id);
     if (ec) {
-        clear_all(sem_id, shm_id, msg_id);
+        clear_all(sem_id, shm_id, msg_id, pipes);
         handle_error("[PM] shared memory", ec);
     }
     ec = init_msg(msg_id);
     if (ec) {
-        clear_all(sem_id, shm_id, msg_id);
+        clear_all(sem_id, shm_id, msg_id, pipes);
         handle_error("[PM] message queue", ec);
+    }
+    ec = init_pipes(pipes);
+    if (ec) {
+        clear_all(sem_id, shm_id, msg_id, pipes);
+        handle_error("[PM] pipes", ec);
     }
 }
 
@@ -95,7 +113,16 @@ int init_msg(int* msg_id) {
     return 0;
 }
 
-void clear_all(int* sem_id, int* shm_id, int* msg_id) {
+int init_pipes(int pipes[][2]) {
+    for (int i=0; i<3; i++) {
+        if (pipe(pipes[i]) == -1) {
+            return 10;
+        }
+        close(pipes[i][READ]);
+    }
+}
+
+void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]) {
     if (*sem_id != -1) semctl(*sem_id, 0, IPC_RMID);
     if (*shm_id != -1) shmctl(*shm_id, IPC_RMID, NULL);
     if (*msg_id != -1) msgctl(*msg_id, IPC_RMID, NULL);

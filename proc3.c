@@ -45,7 +45,7 @@ void loop(int sem_id, struct shared* shm) {
         if (strlen(buffer) < sizeof(shm->buf)) {
             strcpy(shm->buf, buffer);
         } else {
-            printf("ERROR TO BE HANDLED\n");
+            printf("[P3] Uwaga: Wiersz za dlugi - zostal przyciety.\n");
         }
 
         V_MUTEX;
@@ -54,7 +54,7 @@ void loop(int sem_id, struct shared* shm) {
     }
 
     if (ferror(stdin)) {
-        printf("ERROR TO BE HANDLED\n");
+        printf("[P3] Krytyczny blad odczytu stdin\n");
     } else {
         P_EMPTY;
         P_MUTEX;
@@ -63,7 +63,7 @@ void loop(int sem_id, struct shared* shm) {
 
         V_MUTEX;
         V_FULL;
-        printf("KONIEC DANYCH\n");
+        printf("[P3] KONIEC DANYCH\n");
     }
 }
 

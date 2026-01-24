@@ -6,20 +6,23 @@
 
 int pipe_fm; //id pipe'a from main to proc3
 pid_t p2_pid; //pid procesu proc2
+int got_signal=0;
+int s;
 
 void loop(int sem_id, struct shared* shm);
+void signal_handler(int sig);
+void handle_signal();
 
-void handle_signal(int sig);
 
 int main(int argc, char* argv[]) {
+    set_signals(signal_handler);
     if (argc != 3) {
         printf("[P3] Nieprawidlowa liczba argumentow! Oczekiwano 2 (pipe, pid), otrzymano: %d\n", argc - 1);
         return 10;
     }
+
     pipe_fm = atoi(argv[1]); 
     p2_pid = atoi(argv[2]);
-
-    set_signals(handle_signal);
 
     int sem_id = get_semaphore();
     if (sem_id == -1) return 1;
@@ -28,8 +31,6 @@ int main(int argc, char* argv[]) {
 
     loop(sem_id, shm);
 
-    shmdt(shm);
-
     return 0;
 }
 
@@ -37,6 +38,9 @@ void loop(int sem_id, struct shared* shm) {
     char buffer[BUFFER_SIZE];
 
     while(fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
+
+        if (got_signal) handle_signal();
+
         buffer[strcspn(buffer, "\n")] = 0;
 
         P_EMPTY;
@@ -44,6 +48,7 @@ void loop(int sem_id, struct shared* shm) {
 
         if (strlen(buffer) < sizeof(shm->buf)) {
             strcpy(shm->buf, buffer);
+            printf("%s\n", shm->buf);
         } else {
             printf("[P3] Uwaga: Wiersz za dlugi - zostal przyciety.\n");
         }
@@ -67,12 +72,20 @@ void loop(int sem_id, struct shared* shm) {
     }
 }
 
-void handle_signal(int sig) {
+void signal_handler(int sig) {
     if (sig == SIGUSR1) {
-        char buf[sizeof(int)];
-        read(pipe_fm, buf, sizeof(buf));
-        kill(p2_pid, SIGUSR1);
+        got_signal = 1;
     } else {
         printf("[P3] Niepoprawny sygnal\n");
     }   
+}
+
+void handle_signal() {
+    char buf[sizeof(int)];
+    int s;
+    read(pipe_fm, buf, sizeof(buf));
+    memcpy(&s, buf, 4);
+    printf("[P3] Otrzymalem SIGUSR1 oraz ID: %d\n", s);
+    kill(p2_pid, SIGUSR1);
+    got_signal = 0;
 }

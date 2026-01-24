@@ -1,8 +1,13 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
 
 #define BUFFER_SIZE 1024
 
@@ -74,9 +79,11 @@ int get_msg_queue() {
     return msgget(key, 0);
 }
 
-int set_signals(int (*signal_handler)(int)) {
+int set_signals(void (*signal_handler)(int)) {
     signal(SIGUSR1, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGTSTP, signal_handler);
+
+    return 0;
 }

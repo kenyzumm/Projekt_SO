@@ -1,5 +1,9 @@
 #include "ipc.h"
 #include <unistd.h>
+#include <signal.h>
+
+pid_t pid[3] = {-1};
+int pipes[3][2];
 
 
 void init(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
@@ -9,29 +13,23 @@ int init_msg(int* msg_id);
 int init_pipes(int pipes[][2]);
 void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
 void handle_signal(int sig) {
-    switch (sig) {
-        case SIGINT: // wznowienie ctrl c
-        break;
-        case SIGTSTP: // zatrzymanie ctrl z
-        break;
-        case SIGQUIT: // wyjscie ctrl /* \ */
-            for(int i=0; i<3; i++) {
-                if(pid[i] > 0) kill(pid[i], SIGKILL);
-            }
-            clear_all(&sem_id, &shm_id, &msg_id, pipes);
-            exit(0);
-        break;
+    char buf[4];
+    memcpy(buf, &sig, 4);
+
+    for (int i=PM_P1; i<=PM_P3; i++) {
+        write(pipes[i][WRITE], buf, 4);
     }
+    kill(pid[2], SIGUSR1);
+    
 }
 
 int main() {
-    pid_t pid[3] = {-1};
+    signal(SIGPIPE, SIG_IGN);
+
     int sem_id=-1, shm_id=-1, msg_id=-1;
-    int pipes[3][2];
 
     init(&sem_id, &shm_id, &msg_id, pipes);
-    set_signals(handle_signal);
-
+    
     int id = -1;
     for (int i=0; i<3; i++) {
         pid[i] = fork();
@@ -42,6 +40,8 @@ int main() {
         }
         
     }
+    char buf[16];
+    char buf2[16];
     switch(id) {
         case 0:
             close(pipes[PM_P1][WRITE]);
@@ -49,22 +49,32 @@ int main() {
             close(pipes[PM_P2][WRITE]);
             close(pipes[PM_P3][READ]);
             close(pipes[PM_P3][WRITE]);
-            execlp("./proc1", pipes[PM_P1]);
+            snprintf(buf, sizeof(buf), "%d", pipes[PM_P1][READ]);
+            printf("PODMIENIAM P1\n");
+            execlp("./proc1", "./proc1", buf, NULL);
         case 1:
             close(pipes[PM_P2][WRITE]);
             close(pipes[PM_P1][READ]);
             close(pipes[PM_P1][WRITE]);
             close(pipes[PM_P3][READ]);
             close(pipes[PM_P3][WRITE]);
-            execlp("./proc2", pipes[PM_P2]);
+            snprintf(buf, sizeof(buf), "%d", pipes[PM_P2][READ]);
+            snprintf(buf2, sizeof(buf2), "%d", pid[0]);
+            printf("PODMIENIAM P2\n");
+            execlp("./proc2", "./proc2", buf, buf2, NULL);
         case 2:
             close(pipes[PM_P3][WRITE]);
             close(pipes[PM_P1][READ]);
             close(pipes[PM_P1][WRITE]);
             close(pipes[PM_P2][READ]);
             close(pipes[PM_P2][WRITE]);
-            execlp("./proc3", pipes[PM_P3]);
+            snprintf(buf, sizeof(buf), "%d", pipes[PM_P3][READ]);
+            snprintf(buf2, sizeof(buf2), "%d", pid[1]);
+            printf("PODMIENIAM P3\n");
+            execlp("./proc3", "./proc3", buf, buf2, NULL);
     }
+
+    set_signals(handle_signal);
     for(int i=PM_P1; i<=PM_P3; i++) {
         close(pipes[i][READ]);
     }
@@ -141,8 +151,16 @@ int init_pipes(int pipes[][2]) {
         if (pipe(pipes[i]) == -1) {
             return 10;
         }
-        close(pipes[i][READ]);
+        if (fcntl(pipes[i][READ], F_SETFL, O_NONBLOCK) == -1) {
+            perror("fcntl READ");
+        }
+
+        // Dla WRITE end - nieblokujące  
+        if (fcntl(pipes[1][WRITE], F_SETFL, O_NONBLOCK) == -1) {
+            perror("fcntl WRITE");
+        }
     }
+    return 0;
 }
 
 void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]) {

@@ -1,33 +1,22 @@
 #include "ipc.h"
 
-void loop(int msg_id);
+int p;
+int got_signal = 0;
 
-void handle_signal(int sig) {
-    if (sig == SIGUSR1) {
-        // obsluz sygnal
-    } else {
-        printf("[P1] Niepoprawny sygnal\n");
-    }
-}
+void loop(int msg_id);
+void signal_handler(int sig);
+void handle_signal();
 
 int main(int argc, char* argv[]) {
+    set_signals(signal_handler);
+    
+    if (argc != 2 ) {
+        printf("Uzycie: %s <PIPE>\n", argv[0]);
+        return 1;
+    }
 
-   if (argc != 3 ) {
-    printf("Uzycie: %s <PID>\n", argv[0]);
-    return 1;
-}    
-    
-    int p = atoi(argv[1]);
+    p = atoi(argv[1]);
 
-if (p <= 0) {
-    printf("Niepoprawny PID\n");
-    return 1;
-}
-
-    
-    set_signals(handle_signal);
-    
-    
     int msg_id = get_msg_queue();
     if (msg_id == -1) return 1;
 
@@ -38,8 +27,27 @@ if (p <= 0) {
 void loop(int msg_id) {
     struct msgbuf msg;
     while(1) {
+        if (got_signal) handle_signal();
+
         msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0);
         if (msg.data == -1) break;
         printf("[P1] Odebrano: %d\n", msg.data);
     }
+}
+
+void signal_handler(int sig) {
+    if (sig == SIGUSR1) {
+        got_signal = 1;
+    } else {
+        printf("[P1] Niepoprawny sygnal\n");
+    }
+}
+
+void handle_signal() {
+    char buf[sizeof(int)];
+    int signal;
+    read(p, buf, sizeof(buf));
+    memcpy(&signal, buf, 4);
+    printf("[P1] Otrzymalem SIGUSR1 oraz ID: %d\n", signal);
+    got_signal = 0;
 }

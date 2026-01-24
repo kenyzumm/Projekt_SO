@@ -1,5 +1,7 @@
 #include "ipc.h"
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <signal.h>
 
 pid_t pid[3] = {-1};

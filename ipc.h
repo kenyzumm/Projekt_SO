@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 1024
 
@@ -30,12 +31,14 @@
 
 #define KEY ftok("/tmp", 'A')
 
+#ifdef __linux__
 union semun {
-    int              val;              /* used for SETVAL */
+    int              val;
     struct semid_ds *buf;
     unsigned short  *array;
     struct seminfo  *__buf;
 };
+#endif
 
 
 struct shared {
@@ -53,7 +56,13 @@ void sem_op(int sem_id, int sem_num, int op) {
     sb.sem_op = op;
     sb.sem_flg = 0;
 
-    semop(sem_id, &sb, 1);
+    while (semop(sem_id, &sb, 1) == -1) {
+        if (errno != EINTR) {
+            perror("semop");
+            break;
+        }
+        // Jeśli EINTR, spróbuj ponownie
+    }
 }
 
 void handle_error(const char* msg, int exit_code) {

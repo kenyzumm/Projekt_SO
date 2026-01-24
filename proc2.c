@@ -80,14 +80,16 @@ void handle_signal() {
             
             printf("[P2] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
             switch(signal_id) {
-                case 1:
+                case SIGTSTP:
                     printf("[P2] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
                     is_paused = 1;
                     break;
-                case 2:
+                case SIGINT:
                     printf("[P2] Wznowiono proces (SIGCONT)\n");
                     is_paused = 0;
                     break;
+                case SIGTERM:
+                break;
             }
         break;
         default:

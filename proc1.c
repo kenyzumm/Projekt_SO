@@ -56,14 +56,17 @@ void handle_signal() {
         memcpy(&signal_id, buf, 4);
         printf("[P1] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
         switch(signal_id) {
-            case 1:
+            case SIGTSTP:
                 printf("[P1] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
                 is_paused = 1;
                 break;
-            case 2:
+            case SIGCONT:
                 printf("[P1] Wznowiono proces (SIGCONT)\n");
                 is_paused = 0;
                 break;
+            case SIGTERM:
+                // obsluzyc sigterm
+            break;
         }
     }
     got_signal = 0;

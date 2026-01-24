@@ -30,6 +30,14 @@
 
 #define KEY ftok("/tmp", 'A')
 
+union semun {
+    int              val;              /* used for SETVAL */
+    struct semid_ds *buf;
+    unsigned short  *array;
+    struct seminfo  *__buf;
+};
+
+
 struct shared {
     char buf[BUFFER_SIZE];
     int len;

@@ -31,14 +31,12 @@
 
 #define KEY ftok("/tmp", 'A')
 
-#ifdef __linux__
 union semun {
     int              val;
     struct semid_ds *buf;
     unsigned short  *array;
     struct seminfo  *__buf;
 };
-#endif
 
 
 struct shared {

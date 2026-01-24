@@ -84,6 +84,7 @@ int set_signals(void (*signal_handler)(int)) {
     signal(SIGINT, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGTSTP, signal_handler);
+    signal(SIGCONT, signal_handler);
 
     return 0;
 }

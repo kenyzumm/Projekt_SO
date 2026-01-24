@@ -1,10 +1,12 @@
 #include "ipc.h"
 #include <string.h>
+#include <errno.h>
 
 int p;
 pid_t p1_id;
 int got_signal = 0;
 int s;
+int is_paused = 0;
 
 void loop(int sem_id, struct shared* shm, int msg_id);
 void signal_handler(int sig);
@@ -27,6 +29,9 @@ int main(int argc, char* argv[]) {
     
 
     loop(sem_id, shm, msg_id);
+
+    close(p);
+    printf("[P2] Koniec procesu\n");
 }
 
 void loop(int sem_id, struct shared* shm, int msg_id) {
@@ -34,6 +39,10 @@ void loop(int sem_id, struct shared* shm, int msg_id) {
     struct msgbuf msg;
     while (1) {
         if (got_signal) handle_signal();
+
+        if (is_paused) {
+            continue;
+        }
 
         char buffer[BUFFER_SIZE];
         P_FULL;
@@ -70,7 +79,16 @@ void handle_signal() {
             memcpy(&signal_id, buf, 4);
             
             printf("[P2] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
-
+            switch(signal_id) {
+                case 1:
+                    printf("[P2] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
+                    is_paused = 1;
+                    break;
+                case 2:
+                    printf("[P2] Wznowiono proces (SIGCONT)\n");
+                    is_paused = 0;
+                    break;
+            }
         break;
         default:
             kill(getppid(), s);

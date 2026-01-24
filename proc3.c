@@ -2,12 +2,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h> // tylko debug
+#include <unistd.h>
+#include <errno.h>
 
 int pipe_fm; //id pipe'a from main to proc3
 pid_t p2_pid; //pid procesu proc2
 int got_signal=0;
 int s;
+int is_paused = 0;
 
 void loop(int sem_id, struct shared* shm);
 void signal_handler(int sig);
@@ -31,6 +33,10 @@ int main(int argc, char* argv[]) {
 
     loop(sem_id, shm);
 
+    close(p2_pid);
+
+    printf("[P3] Koniec procesu\n");
+
     return 0;
 }
 
@@ -40,6 +46,11 @@ void loop(int sem_id, struct shared* shm) {
     while(fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
 
         if (got_signal) handle_signal();
+
+        // Czekaj dopóki jesteśmy zatrzymani (nie porzucaj odczytanej linii)
+        while (is_paused) {
+            if (got_signal) handle_signal();
+        }
 
         buffer[strcspn(buffer, "\n")] = 0;
 
@@ -85,6 +96,16 @@ void handle_signal() {
         memcpy(&signal_id, buf, 4);
         printf("[P3] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
         kill(p2_pid, SIGUSR1);
+        switch(signal_id) {
+            case 1:
+                printf("[P3] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
+                is_paused = 1;
+                break;
+            case 2:
+                printf("[P3] Wznowiono proces (SIGCONT)\n");
+                is_paused = 0;
+                break;
+        }
     }
     got_signal = 0;
 }

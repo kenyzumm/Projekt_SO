@@ -24,8 +24,6 @@ void handle_signal(int sig) {
 }
 
 int main() {
-    signal(SIGPIPE, SIG_IGN);
-
     int sem_id=-1, shm_id=-1, msg_id=-1;
 
     init(&sem_id, &shm_id, &msg_id, pipes);
@@ -167,4 +165,7 @@ void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]) {
     if (*sem_id != -1) semctl(*sem_id, 0, IPC_RMID);
     if (*shm_id != -1) shmctl(*shm_id, IPC_RMID, NULL);
     if (*msg_id != -1) msgctl(*msg_id, IPC_RMID, NULL);
+    for (int i=0; i<3; i++) {
+        close(pipes[i][WRITE]);
+    }
 }

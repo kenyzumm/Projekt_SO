@@ -37,12 +37,8 @@ void loop(int msg_id) {
             continue;
         }
 
-        int ret = msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0);
-        if (ret == -1 && errno == EINTR) {
-            // Wywołanie przerwane przez sygnał, spróbuj ponownie
-            continue;
-        }
-        if (ret >= 0 && msg.data == -1) break;
+        msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0);
+        if (msg.data == -1) break;
         printf("[P1] Odebrano: %d\n", msg.data);
     }
 }

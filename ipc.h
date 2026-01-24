@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <errno.h>
 
 #define BUFFER_SIZE 1024
 
@@ -56,13 +55,7 @@ void sem_op(int sem_id, int sem_num, int op) {
     sb.sem_op = op;
     sb.sem_flg = 0;
 
-    while (semop(sem_id, &sb, 1) == -1) {
-        if (errno != EINTR) {
-            perror("semop");
-            break;
-        }
-        // Jeśli EINTR, spróbuj ponownie
-    }
+    semop(sem_id, &sb, 1);
 }
 
 void handle_error(const char* msg, int exit_code) {

@@ -60,7 +60,7 @@ void handle_signal() {
                 printf("[P1] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
                 is_paused = 1;
                 break;
-            case SIGCONT:
+            case SIGINT:
                 printf("[P1] Wznowiono proces (SIGCONT)\n");
                 is_paused = 0;
                 break;

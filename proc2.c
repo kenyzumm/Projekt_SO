@@ -44,33 +44,29 @@ void loop(int sem_id, struct shared* shm, int msg_id) {
             continue;
         }
 
-        P_FULL;
-        P_MUTEX;
-        /*
         if (P_FULL == -1) {
             if (errno == EINTR) continue;
-            perror("P_FULL"); break;
+            break;
         }
         if (P_MUTEX == -1) {
-            if (errno == EINTR) { V_FULL; continue; }
-            perror("P_MUTEX"); break;
+            if (errno == EINTR) continue;
+            break;
         }
-        */
-
-            char buffer[BUFFER_SIZE];
-            strcpy(buffer, shm->buf);
-            int is_eof = (buffer[0] == 0);
+        
+        char buffer[BUFFER_SIZE];
+        strcpy(buffer, shm->buf);
+        
         V_MUTEX;
         V_EMPTY;
 
-        if (is_eof) break;
-
         msg.type = 1;
         msg.data = strlen(buffer);
-        msgsnd(msg_id, &msg, sizeof(msg.data), 0);
+        if (msgsnd(msg_id, &msg, sizeof(msg.data), 0) == -1) {
+            if (errno == EINTR) continue;
+            break;
+        }
     }
     
-    // Sygnał końca danych do P1
     msg.type = 1;
     msg.data = -1;
     msgsnd(msg_id, &msg, sizeof(msg.data), 0);

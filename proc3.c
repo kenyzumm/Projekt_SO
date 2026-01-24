@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     loop(sem_id, shm);
 
-    close(p2_pid);
+    close(pipe_fm);
 
     printf("[P3] Koniec procesu\n");
 
@@ -47,31 +47,24 @@ void loop(int sem_id, struct shared* shm) {
         if (got_signal) handle_signal();
 
         if (is_paused) {
-            pause(); // Czekaj na sygnał (prawdopodobnie SIGUSR1 o wznowieniu)
             continue;
         }
 
         if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
-            if (errno == EINTR) {
-                continue; // Sygnał przerwał fgets, obsługa na górze pętli
-            }
+            if (errno == EINTR) continue;
             break;
         }
 
         buffer[strcspn(buffer, "\n")] = 0;
 
-        P_EMPTY;
-        P_MUTEX;
-        /*
         if (P_EMPTY == -1) {
             if (errno == EINTR) continue;
-            perror("P_EMPTY/P3"); break;
+            break;
         }
         if (P_MUTEX == -1) {
-            if (errno == EINTR) { V_EMPTY; continue; }
-            perror("P_MUTEX/P3"); break;
+            if (errno == EINTR) continue;
+            break;
         }
-        */
 
         if (strlen(buffer) < sizeof(shm->buf)) {
             strcpy(shm->buf, buffer);

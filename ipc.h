@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 1024
 
@@ -49,13 +50,13 @@ struct msgbuf {
     int data;
 };
 
-void sem_op(int sem_id, int sem_num, int op) {
+int sem_op(int sem_id, int sem_num, int op) {
     struct sembuf sb;
     sb.sem_num = sem_num;
     sb.sem_op = op;
     sb.sem_flg = 0;
 
-    semop(sem_id, &sb, 1);
+    return semop(sem_id, &sb, 1);
 }
 
 void handle_error(const char* msg, int exit_code) {
@@ -89,12 +90,36 @@ int get_msg_queue() {
     return msgget(key, 0);
 }
 
-int set_signals(void (*signal_handler)(int)) {
+// Konfiguracja sygnałów dla procesów P1 i P3 - ignoruje sygnały zewnętrzne, reaguje na SIGUSR1
+int set_signals_ignore(void (*signal_handler)(int)) {
+    signal(SIGUSR1, signal_handler);
+    signal(SIGINT, SIG_IGN);
+    signal(SIGQUIT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGCONT, SIG_IGN);
+    return 0;
+}
+
+// Konfiguracja sygnałów dla P2 - reaguje na wszystko (przekazuje do main)
+int set_signals_p2(void (*signal_handler)(int)) {
     signal(SIGUSR1, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGTSTP, signal_handler);
     signal(SIGCONT, signal_handler);
+    return 0;
+}
 
+// Konfiguracja sygnałów dla main - używa sigaction aby móc filtrować nadawcę (si_pid)
+int set_main_signals(void (*handler)(int, siginfo_t *, void *)) {
+    struct sigaction sa;
+    sa.sa_sigaction = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGQUIT, &sa, NULL);
+    sigaction(SIGTSTP, &sa, NULL);
+    sigaction(SIGCONT, &sa, NULL);
     return 0;
 }

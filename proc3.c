@@ -17,7 +17,7 @@ void handle_signal();
 
 
 int main(int argc, char* argv[]) {
-    set_signals(signal_handler);
+    set_signals_ignore(signal_handler);
     if (argc != 3) {
         printf("[P3] Nieprawidlowa liczba argumentow! Oczekiwano 2 (pipe, pid), otrzymano: %d\n", argc - 1);
         return 10;
@@ -43,19 +43,35 @@ int main(int argc, char* argv[]) {
 void loop(int sem_id, struct shared* shm) {
     char buffer[BUFFER_SIZE];
 
-    while(fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
-
+    while(1) {
         if (got_signal) handle_signal();
 
-        // Czekaj dopóki jesteśmy zatrzymani (nie porzucaj odczytanej linii)
-        while (is_paused) {
-            if (got_signal) handle_signal();
+        if (is_paused) {
+            pause(); // Czekaj na sygnał (prawdopodobnie SIGUSR1 o wznowieniu)
+            continue;
+        }
+
+        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
+            if (errno == EINTR) {
+                continue; // Sygnał przerwał fgets, obsługa na górze pętli
+            }
+            break;
         }
 
         buffer[strcspn(buffer, "\n")] = 0;
 
         P_EMPTY;
         P_MUTEX;
+        /*
+        if (P_EMPTY == -1) {
+            if (errno == EINTR) continue;
+            perror("P_EMPTY/P3"); break;
+        }
+        if (P_MUTEX == -1) {
+            if (errno == EINTR) { V_EMPTY; continue; }
+            perror("P_MUTEX/P3"); break;
+        }
+        */
 
         if (strlen(buffer) < sizeof(shm->buf)) {
             strcpy(shm->buf, buffer);
@@ -66,21 +82,17 @@ void loop(int sem_id, struct shared* shm) {
 
         V_MUTEX;
         V_FULL;
-        sleep(1); // debug
+
+        sleep(1);
     }
 
-    if (ferror(stdin)) {
-        printf("[P3] Krytyczny blad odczytu stdin\n");
-    } else {
-        P_EMPTY;
-        P_MUTEX;
-
-        shm->buf[0] = 0;
-
-        V_MUTEX;
-        V_FULL;
-        printf("[P3] KONIEC DANYCH\n");
-    }
+    // Koniec danych
+    P_EMPTY;
+    P_MUTEX;
+    shm->buf[0] = 0;
+    V_MUTEX;
+    V_FULL;
+    printf("[P3] KONIEC DANYCH\n");
 }
 
 void signal_handler(int sig) {
@@ -89,25 +101,23 @@ void signal_handler(int sig) {
 }
 
 void handle_signal() {
-    if (s == SIGUSR1) {
-        char buf[sizeof(int)];
-        int signal_id;
-        read(pipe_fm, buf, sizeof(buf));
-        memcpy(&signal_id, buf, 4);
-        printf("[P3] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
-        kill(p2_pid, SIGUSR1);
-        switch(signal_id) {
-            case SIGTSTP:
-                printf("[P3] Zatrzymano proces (SIGTSTP). Oczekiwanie na SIGCONT...\n");
-                is_paused = 1;
-                break;
-            case SIGINT:
-                printf("[P3] Wznowiono proces (SIGCONT)\n");
-                is_paused = 0;
-                break;
-            case SIGTERM:
-            break;
-        }
-    }
     got_signal = 0;
+    if (s == SIGUSR1) {
+        int signal_id;
+        if (read(pipe_fm, &signal_id, sizeof(int)) == sizeof(int)) {
+            printf("[P3] Przetwarzam ID sygnalu: %d\n", signal_id);
+            if (signal_id == SIGTSTP) {
+                printf("[P3] Pauza\n");
+                is_paused = 1;
+            } else if (signal_id == SIGINT || signal_id == SIGCONT) {
+                printf("[P3] Wznowienie\n");
+                is_paused = 0;
+            }
+            // Propagacja
+            kill(p2_pid, SIGUSR1);
+        }
+    } else if (s == SIGTERM) {
+        printf("[P3] Konczenie...\n");
+        exit(0);
+    }
 }

@@ -14,15 +14,20 @@ int init_shared_memory(int* shm_id);
 int init_msg(int* msg_id);
 int init_pipes(int pipes[][2]);
 void clear_all(int* sem_id, int* shm_id, int* msg_id, int pipes[][2]);
-void handle_signal(int sig) {
+void handle_signal(int sig, siginfo_t *info, void *context) {
+    // Reaguj tylko na sygnały od P2 (pid[1])
+    if (info->si_pid != pid[PM_P2]) {
+        return;
+    }
+
     char buf[4];
     memcpy(buf, &sig, 4);
 
     for (int i=PM_P1; i<=PM_P3; i++) {
         write(pipes[i][WRITE], buf, 4);
     }
-    kill(pid[2], SIGUSR1);
-    
+    // Parent initiates propagation by signaling P3
+    kill(pid[PM_P3], SIGUSR1);
 }
 
 int main() {
@@ -74,13 +79,18 @@ int main() {
             execlp("./proc3", "./proc3", buf, buf2, NULL);
     }
 
-    set_signals(handle_signal);
+    set_main_signals(handle_signal);
     for(int i=PM_P1; i<=PM_P3; i++) {
         close(pipes[i][READ]);
     }
 
-    for (int i=0; i<3; i++) {
-        wait(NULL);
+    int children_finished = 0;
+    while (children_finished < 3) {
+        if (wait(NULL) == -1) {
+            if (errno == EINTR) continue;
+            break; // Przerwij w przypadku krytycznego błędu
+        }
+        children_finished++;
     }
 
     clear_all(&sem_id, &shm_id, &msg_id, pipes);
@@ -150,14 +160,6 @@ int init_pipes(int pipes[][2]) {
     for (int i=0; i<3; i++) {
         if (pipe(pipes[i]) == -1) {
             return 10;
-        }
-        if (fcntl(pipes[i][READ], F_SETFL, O_NONBLOCK) == -1) {
-            perror("fcntl READ");
-        }
-
-        // Dla WRITE end - nieblokujące  
-        if (fcntl(pipes[i][WRITE], F_SETFL, O_NONBLOCK) == -1) {
-            perror("fcntl WRITE");
         }
     }
     return 0;

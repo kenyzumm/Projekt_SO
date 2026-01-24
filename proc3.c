@@ -73,19 +73,18 @@ void loop(int sem_id, struct shared* shm) {
 }
 
 void signal_handler(int sig) {
-    if (sig == SIGUSR1) {
-        got_signal = 1;
-    } else {
-        printf("[P3] Niepoprawny sygnal\n");
-    }   
+    s = sig;
+    got_signal = 1;
 }
 
 void handle_signal() {
-    char buf[sizeof(int)];
-    int s;
-    read(pipe_fm, buf, sizeof(buf));
-    memcpy(&s, buf, 4);
-    printf("[P3] Otrzymalem SIGUSR1 oraz ID: %d\n", s);
-    kill(p2_pid, SIGUSR1);
+    if (s == SIGUSR1) {
+        char buf[sizeof(int)];
+        int signal_id;
+        read(pipe_fm, buf, sizeof(buf));
+        memcpy(&signal_id, buf, 4);
+        printf("[P3] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
+        kill(p2_pid, SIGUSR1);
+    }
     got_signal = 0;
 }

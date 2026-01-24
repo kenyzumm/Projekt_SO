@@ -156,7 +156,7 @@ int init_pipes(int pipes[][2]) {
         }
 
         // Dla WRITE end - nieblokujące  
-        if (fcntl(pipes[1][WRITE], F_SETFL, O_NONBLOCK) == -1) {
+        if (fcntl(pipes[i][WRITE], F_SETFL, O_NONBLOCK) == -1) {
             perror("fcntl WRITE");
         }
     }

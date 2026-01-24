@@ -64,12 +64,12 @@ void handle_signal() {
         case SIGUSR1:
             kill(p1_id, SIGUSR1);
             char buf[4];
-            int s;
+            int signal_id;
 
             read(p, buf, 4);
-            memcpy(&s, buf, 4);
+            memcpy(&signal_id, buf, 4);
             
-            printf("[P2] Otrzymalem SIGUSR1 oraz ID: %d\n", s);
+            printf("[P2] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
 
         break;
         default:

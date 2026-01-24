@@ -2,6 +2,7 @@
 
 int p;
 int got_signal = 0;
+int received_signal = 0;
 
 void loop(int msg_id);
 void signal_handler(int sig);
@@ -36,18 +37,17 @@ void loop(int msg_id) {
 }
 
 void signal_handler(int sig) {
-    if (sig == SIGUSR1) {
-        got_signal = 1;
-    } else {
-        printf("[P1] Niepoprawny sygnal\n");
-    }
+    received_signal = sig;
+    got_signal = 1;
 }
 
 void handle_signal() {
-    char buf[sizeof(int)];
-    int signal;
-    read(p, buf, sizeof(buf));
-    memcpy(&signal, buf, 4);
-    printf("[P1] Otrzymalem SIGUSR1 oraz ID: %d\n", signal);
+    if (received_signal == SIGUSR1) {
+        char buf[sizeof(int)];
+        int signal_id;
+        read(p, buf, sizeof(buf));
+        memcpy(&signal_id, buf, 4);
+        printf("[P1] Otrzymalem SIGUSR1 oraz ID: %d\n", signal_id);
+    }
     got_signal = 0;
 }

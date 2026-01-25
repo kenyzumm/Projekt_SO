@@ -5,18 +5,9 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define P1 0
-#define P2 1
-#define P3 2
-
 #define PAUSE 0
 #define TERM 1
 
-#define READ 0
-#define WRITE 1
-
-extern int pipes[3][2];
-extern pid_t pid[3];
 
 extern volatile sig_atomic_t PM_got_signal;
 extern volatile sig_atomic_t PM_last_signal;
@@ -33,7 +24,7 @@ void pm_signal_handler(int sig, siginfo_t* info);
 
 void handle_atomics(int sig, volatile sig_atomic_t* paused, volatile sig_atomic_t* term);
 void notify(pid_t pid);
-void wait_if_paused(volatile sig_atomic_t *paused, volatile sig_atomic_t *term, const char* who);
+void wait_if_paused(volatile sig_atomic_t *paused, volatile sig_atomic_t *term);
 void parent_send_control(int sig);
 
 

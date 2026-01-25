@@ -16,8 +16,11 @@
 #define BUFFER_SIZE 1024
 
 #define PM_P1 0
+#define P1 0
 #define PM_P2 1
+#define P2 1
 #define PM_P3 2
+#define P3 2
 #define READ 0
 #define WRITE 1
 
@@ -42,6 +45,12 @@ union semun {
     struct seminfo  *__buf;
 };
 #endif
+
+extern pid_t pid[3];
+extern int pipes[3][2];
+extern int msg;
+extern int sem;
+extern struct shared* shm;
 
 struct shared {
     char buf[BUFFER_SIZE];

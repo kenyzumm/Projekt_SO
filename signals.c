@@ -63,7 +63,7 @@ void notify(pid_t pid) {
         kill(pid, SIGUSR1);
     }
 }
-void wait_if_paused(volatile sig_atomic_t* paused, volatile sig_atomic_t* term, const char* who) {
+void wait_if_paused(volatile sig_atomic_t* paused, volatile sig_atomic_t* term) {
     while (*paused && !*term) {
         pause();
     }

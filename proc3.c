@@ -2,11 +2,12 @@
 #include "ipc.h"
 #include "signals.h"
 
-
+// --- Zmienne globalne lokalne dla P3 ---
 int pipe_fm;   // Deskryptor potoku od Main
 pid_t p2_pid;  // PID procesu P2 do propagacji
 
-void trans_args(int argc, char* argv[]);
+// --- Prototypy funkcji ---
+void parse_args(int argc, char* argv[]);
 void init_ipc_resources(int* sem_id, struct shared** shm);
 void setup_signal_handling();
 int  get_input_data(char* buffer);
@@ -18,28 +19,29 @@ void loop(int sem_id, struct shared* shm);
 // MAIN
 // ============================================================================
 int main(int argc, char* argv[]) {
-    trans_args(argc, argv);
+    // 1. Parsowanie argumentów
+    parse_args(argc, argv);
 
     int sem_id;
     struct shared* shm;
     
-    // 1. Inicjalizacja zasobów IPC
+    // 2. Inicjalizacja zasobów IPC (Tylko semafory i pamięć!)
     init_ipc_resources(&sem_id, &shm);
 
-    // 2. Konfiguracja sygnałów
+    // 3. Konfiguracja sygnałów i łącza sterującego
     setup_signal_handling();
 
-    // 3. Główna pętla przetwarzania
+    // 4. Główna pętla przetwarzania
     loop(sem_id, shm);
 
-    // 4. Sprzątanie
+    // 5. Sprzątanie
     close(pipe_fm);
     printf("[P3] Koniec procesu\n");
     return 0;
 }
 
-// Obsługa argumentów linii poleceń
-void trans_args(int argc, char* argv[]) {
+// --- Obsługa argumentów linii poleceń ---
+void parse_args(int argc, char* argv[]) {
     if (argc != 3) {
         printf("[P3] Błąd arg: %d (oczekiwano pipe_fd, p2_pid)\n", argc);
         exit(1);
@@ -56,10 +58,58 @@ void init_ipc_resources(int* sem_id, struct shared** shm) {
     *shm = get_shared_memory();
     if (!*shm) { perror("[P3] shmget"); exit(2); }
 
-    // WAŻNE: Inicjalizacja kolejki komunikatów dla handlera p3_notify_handler (z signals.c)
-    // Zmienna 'msq' jest zdefiniowana jako extern w ipc.h/signals.h
-    msq = get_msg_queue();
-    if (msq == -1) { perror("[P3] msgget"); exit(3); }
+    // POPRAWKA: P3 NIE używa kolejki komunikatów (msq).
+    // Usunięto kod init_msg_queue(), który był tutaj błędny.
+}
+
+// --- Konfiguracja sygnałów ---
+void setup_signal_handling() {
+    // 1. Konfiguracja dla signals.c - PROPAGACJA
+    // Mówimy bibliotece signals, jaki jest PID następnego procesu (P2)
+    pid_p2 = p2_pid; 
+    // Lub jeśli w signals.h używasz zmiennej 'next_pid':
+    // next_pid = p2_pid;
+
+    // 2. Konfiguracja dla signals.c - STEROWANIE PRZEZ PIPE
+    // Przepisujemy deskryptor rury do zmiennej globalnej z signals.h.
+    // Dzięki temu wait_if_paused będzie wiedziało skąd czytać komendę.
+    ctrl_pipe_fd = pipe_fm;
+
+    // 3. Instalacja handlera
+    // Używamy handlera, który obsłuży SIGUSR1 i odczyt z rury
+    install_sa_handler(SIGUSR1, p3_notify_handler, 0);
+}
+
+// --- Pętla główna ---
+void loop(int sem_id, struct shared* shm) {
+    char buffer[BUFFER_SIZE];
+
+    while (1) {
+        // 1. Sprawdzenie pauzy (Busy Wait + Odczyt z Pipe w tle)
+        wait_if_paused(&p3_paused, &p3_term, "P3");
+        
+        // Sprawdzenie flagi końca
+        if (p3_term) break;
+
+        // 2. Pobranie danych z wejścia
+        if (!get_input_data(buffer)) {
+            break; 
+        }
+
+        // 3. Zapis do pamięci współdzielonej (Sekcja Krytyczna)
+        int write_status = write_to_shm(sem_id, shm, buffer);
+        
+        if (write_status == 1) continue; // Przerwano sygnałem -> restart pętli
+        if (write_status == -1) break;   // Błąd krytyczny semaforów
+
+        // 4. Symulacja pracy
+        sleep(1);
+    }
+
+    // 5. Wysłanie znacznika końca
+    if (!p3_term) {
+        send_termination_marker(sem_id, shm);
+    }
 }
 
 // --- Wysłanie znacznika końca danych ---
@@ -72,43 +122,9 @@ void send_termination_marker(int sem_id, struct shared* shm) {
     printf("[P3] KONIEC DANYCH\n");
 }
 
-
-void loop(int sem_id, struct shared* shm) {
-    char buffer[BUFFER_SIZE];
-
-    while (1) {
-        // 1. Sprawdzenie pauzy (Busy Wait na zmiennych atomowych)
-        wait_if_paused(&p3_paused, &p3_term, "P3");
-        
-        // Sprawdzenie czy nie ma końca programu (flaga od handlera)
-        if (p3_term) break;
-
-        // 2. Pobranie danych z wejścia
-        // Funkcja zwraca 0 w przypadku błędu/EOF/Termination, 1 w przypadku sukcesu
-        if (!get_input_data(buffer)) {
-            break; 
-        }
-
-        // 3. Zapis do pamięci współdzielonej (Sekcja Krytyczna)
-        // Funkcja zwraca status: 0=OK, 1=RETRY (przerwane sygnałem), -1=ERROR
-        int write_status = write_to_shm(sem_id, shm, buffer);
-        
-        if (write_status == 1) continue; // Przerwano sygnałem -> restart pętli
-        if (write_status == -1) break;   // Błąd krytyczny semaforów
-
-        // 4. Symulacja pracy
-        sleep(1);
-    }
-
-    // 5. Wysłanie znacznika końca (jeśli nie zostaliśmy zabici sygnałem SIGTERM)
-    if (!p3_term) {
-        send_termination_marker(sem_id, shm);
-    }
-}
-
 // --- Pobieranie danych (opakowanie safe_fgets) ---
 int get_input_data(char* buffer) {
-    // Ta funkcja sama sprawdzi pauzę, jeśli fgets zostanie przerwane sygnałem (EINTR)
+    // safe_fgets korzysta z wait_if_paused, więc obsłuży też odczyt z rury
     if (!safe_fgets_interruptible(stdin, buffer, BUFFER_SIZE, &p3_paused, &p3_term)) {
         return 0; // EOF lub SIGTERM
     }
@@ -119,26 +135,22 @@ int get_input_data(char* buffer) {
 }
 
 // --- Sekcja krytyczna: Semafor P -> Zapis -> Semafor V ---
-// Zwraca: 0 (Sukces), 1 (Przerwano sygnałem - spróbuj ponownie), -1 (Błąd)
 int write_to_shm(int sem_id, struct shared* shm, const char* buffer) {
     
     // A. Opuszczenie semafora EMPTY (czekamy na miejsce)
     if (P_EMPTY == -1) { 
          if (errno == EINTR) return 1; // Przerwano sygnałem -> Retry
-         return -1; // Prawdziwy błąd semafora
+         return -1; // Prawdziwy błąd
     }
     
     // B. Opuszczenie semafora MUTEX (dostęp wyłączny)
     if (P_MUTEX == -1) { 
-         // ROLLBACK: Jeśli nie udało się zająć MUTEX (np. przez sygnał),
-         // musimy oddać zabrane wcześniej miejsce (V_EMPTY), żeby nie zgubić zasobu.
-         V_EMPTY; 
-         
+         V_EMPTY; // ROLLBACK
          if (errno == EINTR) return 1; // Retry
          return -1; // Error
     }
 
-    // C. Zapis danych (Kopiowanie do pamięci współdzielonej)
+    // C. Zapis danych
     if (strlen(buffer) < sizeof(shm->buf)) {
         strcpy(shm->buf, buffer);
     } else {
@@ -147,26 +159,9 @@ int write_to_shm(int sem_id, struct shared* shm, const char* buffer) {
         shm->buf[sizeof(shm->buf)-1] = 0;
     }
 
-    // D. Podniesienie semaforów (Sygnalizacja)
-    V_MUTEX; // Zwolnienie sekcji krytycznej
-    V_FULL;  // Zasygnalizowanie P2, że są nowe dane
+    // D. Podniesienie semaforów
+    V_MUTEX;
+    V_FULL; 
     
     return 0; // Sukces
-}
-
-
-
-
-
-
-
-
-// --- Konfiguracja sygnałów ---
-void setup_signal_handling() {
-    // Zapisujemy PIDy globalne (dla funkcji notify w signals.c)
-    // Zmienna 'pid_p2' jest zdefiniowana jako extern
-    pid_p2 = p2_pid;
-
-    // Instalacja handlerów z signals.c
-    install_sa_handler(SIGUSR1, p3_notify_handler, 0);
 }

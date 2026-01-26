@@ -38,7 +38,7 @@ void p2_out_signal_handler(int sig) { // Kiedy ta funkcja się uruchomi (np. gdy
     (void)sig; // Unikamy ostrzeżenia o nieużywanej zmiennej
     pid_t pp = getppid();
     if (pp <= 1) return;
-
+    
     if (sig == SIGTSTP) {
         // Jeśli Ctrl+Z -> wyślij prośbę o pauzę (umowny SIGUSR2)
         kill(pp, SIGUSR2);

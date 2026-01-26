@@ -46,7 +46,8 @@ int main(int argc, char* argv[]) {
     (void)argv;
 
     // Ustawienie handlera sprzątającego na sygnały zakończenia
-    signal(SIGINT, cleanup_handler);
+    //signal(SIGINT, cleanup_handler);
+    signal(SIGINT, SIG_IGN);
 
     // Ignoruj bezpośrednie Ctrl+Z
     signal(SIGTSTP, SIG_IGN);

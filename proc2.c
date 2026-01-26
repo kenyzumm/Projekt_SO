@@ -26,6 +26,13 @@ void process_p2() {
     sigemptyset(&sa_cont.sa_mask);
     sa_cont.sa_flags = 0;
     sigaction(SIGCONT, &sa_cont, NULL);
+
+    struct sigaction sa_term;
+    sa_term.sa_handler = p2_out_signal_handler; 
+    sigemptyset(&sa_term.sa_mask);
+    sa_term.sa_flags = 0;
+    sigaction(SIGTERM, &sa_term, NULL);
+
     
 
     while (1) {

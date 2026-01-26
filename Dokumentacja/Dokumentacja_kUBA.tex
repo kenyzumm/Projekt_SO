@@ -1,0 +1,82 @@
+\documentclass[tikz, border=10pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, decorations.pathmorphing}
+
+\begin{document}
+
+\begin{tikzpicture}[
+    >={Stealth[length=2mm]},
+    font=\sffamily\small,
+    proc/.style={rectangle, rounded corners=5pt, draw, fill=blue!10, minimum width=2.5cm, minimum height=1.2cm, align=center, thick},
+    mainproc/.style={rectangle, rounded corners=5pt, draw, fill=green!10, minimum width=3.5cm, minimum height=1.5cm, align=center, thick},
+    resource/.style={trapezium, trapezium left angle=70, trapezium right angle=110, draw, fill=gray!10, align=center, minimum width=2.5cm},
+    pipe/.style={draw, fill=orange!10, cylinder, cylinder uses custom fill, cylinder body fill=orange!5, cylinder end fill=orange!20, shape border rotate=0, minimum width=0.8cm, minimum height=1.5cm},
+    sig_arrow/.style={->, color=red, thick, dashed},
+    data_arrow/.style={->, thick},
+    label_box/.style={font=\tiny\itshape, color=black}
+]
+
+% 1. PROCESY (Zgodnie z tablicą pid[3] w main.cpp)
+\node[mainproc] (Main) at (0,0) {\textbf{Main (Rodzic)}\\Odbiera tylko od P2\\pm\_send(sig)};
+\node[proc] (P3) at (5,-4.5) {\textbf{Proces 3 (pid[2])}\\Producent\\(SHM Writing)};
+\node[proc] (P2) at (0,-4.5) {\textbf{Proces 2 (pid[1])}\\Przetwarzanie\\(Forwarder Sygnałów)};
+\node[proc] (P1) at (-5,-4.5) {\textbf{Proces 1 (pid[0])}\\Konsument\\(MQ Reading)};
+
+% 2. ZASOBY IPC - KOMUNIKACJA DANYCH
+\node[resource] (SHM) at (2.5,-7) {Pamięć Współdzielona\\(shm\_id + sem)};
+\node[resource] (MQ) at (-2.5,-7) {Kolejka Komunikatów\\(msgget)};
+
+% 3. ŁĄCZA KOMUNIKACYJNE (PIPES)
+\node[pipe] (Pipe3) at (3,-2) {pp3};
+\node[pipe] (Pipe2) at (0,-2.3) {pp2};
+\node[pipe] (Pipe1) at (-3,-2) {pp1};
+
+% --- PRZEPŁYW DANYCH (main.cpp) ---
+\draw[data_arrow] (5,-8) node[below]{Plik / STDIN} -- (P3);
+\draw[data_arrow] (P3) -- node[right, label_box]{strcpy(buf)} (SHM);
+\draw[data_arrow] (SHM) -- node[left, label_box]{strlen(buf)} (P2);
+\draw[data_arrow] (P2) -- node[right, label_box]{msgsnd()} (MQ);
+\draw[data_arrow] (MQ) -- node[left, label_box]{msgrcv()} (P1);
+\draw[data_arrow] (P1) -- (-5,-8) node[below]{STDOUT};
+
+% --- ŁAŃCUCH SYGNAŁÓW (Dokładna logika z Twojego kodu) ---
+
+% Krok 1: P2 przechwytuje sygnał i wysyła do rodzica
+\node (Terminal) at (0,-8) [draw, dashed, inner sep=2pt]{Terminal / Shell};
+\draw[sig_arrow] (Terminal) -- node[midway, right, font=\tiny]{1. SIGTSTP/INT} (P2);
+\draw[sig_arrow] (P2.north) .. controls (-1.5,-4) and (-1.5,-1) .. node[left, pos=0.5, align=right, font=\tiny]{2. kill(ppid, sig)\\Przekazanie do Main} (Main.south);
+
+% Krok 2: Main weryfikuje nadawcę i pisze do wszystkich rur
+\draw[->, color=blue, thick] (Main) -- node[label_box, pos=0.8, left]{write(pp1)} (Pipe1);
+\draw[->, color=blue, thick] (Main) -- node[label_box, pos=0.8, left]{write(pp2)} (Pipe2);
+\draw[->, color=blue, thick] (Main) -- node[label_box, pos=0.8, right]{write(pp3)} (Pipe3);
+
+% Krok 3: Main inicjuje kaskadę budząc P3
+\draw[sig_arrow] (Main.east) .. controls (5.5,-1) and (5.5,-2.5) .. node[right, font=\tiny]{3. kill(pid[2], SIGUSR1)\\Start Kaskady} (P3.north);
+
+% Krok 4: P3 budzi P2
+\draw[sig_arrow] (P3) -- node[above, font=\tiny]{4. kill(pid[1], SIGUSR1)} (P2);
+
+% Krok 5: P2 budzi P1
+\draw[sig_arrow] (P2) -- node[above, font=\tiny]{5. kill(pid[0], SIGUSR1)} (P1);
+
+% Odczyty z rur po otrzymaniu powiadomienia
+\draw[dashed, ->, gray] (Pipe3) -- node[label_box, right]{read()} (P3);
+\draw[dashed, ->, gray] (Pipe2) -- node[label_box, right]{read()} (P2);
+\draw[dashed, ->, gray] (Pipe1) -- node[label_box, left]{read()} (P1);
+
+% LEGENDA
+% \node[draw, fill=white, inner sep=5pt, shift={(6,0.5)}] at (current bounding box.south west) {
+%     \begin{tabular}{ll}
+%         \textcolor{red}{$-\!-\!\to$} & Sygnał Powiadomienia (SIGUSR1) \\
+%         $\longrightarrow$ & Przepływ danych / Zapis do rury \\
+%         \textcolor{blue}{pp1,2,3} & Potoki (Pipes) dla komend \\
+%         \textcolor{gray}{SHM} & Pamięć dzielona (ec, buf) \\
+%         \textcolor{gray}{MQ} & Kolejka komunikatów (data) \\
+%     \end{tabular}
+% };
+
+\end{tikzpicture}
+\end{document}

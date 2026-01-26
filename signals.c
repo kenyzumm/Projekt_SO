@@ -35,7 +35,7 @@ void p3_notify_handler(int sig) {
 }
 
 void p2_out_signal_handler(int sig) { // Kiedy ta funkcja się uruchomi (np. gdy wciśniesz Ctrl+Z w P2), Proces 2 wysyła do MAIN-a sygnał SIGUSR2
-    (void)sig;
+    (void)sig; // Unikamy ostrzeżenia o nieużywanej zmiennej
     pid_t pp = getppid();
     if (pp <= 1) return;
 

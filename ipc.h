@@ -70,8 +70,6 @@ struct shared* get_shared_memory(void);
 int get_semaphore(void);
 int get_msg_queue(void);
 
-const char *sig_name(int s);
-
 void clean_stdin_buffer(void);
 
 void remove_newline(char *s);

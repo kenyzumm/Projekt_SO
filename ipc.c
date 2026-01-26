@@ -49,15 +49,6 @@ void clean_stdin_buffer(void) {
     tcflush(STDIN_FILENO, TCIFLUSH);
 }
 
-const char *sig_name(int s) {
-    if (s == SIGTSTP) return "SIGTSTP";
-    if (s == SIGCONT) return "SIGCONT";
-    if (s == SIGTERM) return "SIGTERM";
-    if (s == SIGINT)  return "SIGINT";
-    if (s == SIGUSR1) return "SIGUSR1";
-    return "INNY_SYGNAL";
-}
-
 void remove_newline(char *s) {
     if (!s) return;
     int l = strlen(s);

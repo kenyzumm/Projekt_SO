@@ -13,9 +13,6 @@ int  write_to_shm(int sem_id, struct shared* shm, const char* buffer);
 void send_termination_marker(int sem_id, struct shared* shm);
 void loop(int sem_id, struct shared* shm);
 
-// ============================================================================
-// MAIN
-// ============================================================================
 void process_p3(char* file_path) {
     printf("[P3] Uruchomiono (PID: %d)\n", getpid());
 
@@ -44,7 +41,6 @@ void process_p3(char* file_path) {
 
 // --- Obsługa argumentów linii poleceń ---
 void parse_args(char* path) {
-    // Sprawdzamy pierwszy argument (argv[1]) jako ścieżkę do pliku
     if (path != NULL && strcmp(path, "NULL") != 0) {
         input_source = fopen(path, "r");
         if (!input_source) {
@@ -102,10 +98,9 @@ void loop(int sem_id, struct shared* shm) {
 
         int write_status = write_to_shm(sem_id, shm, buffer);
         
-        if (write_status == 1) continue; 
+        //if (write_status == 1) continue; 
         if (write_status == -1) break;
 
-        //sleep(1);
     }
 
     if (!status[P3][TERM]) {

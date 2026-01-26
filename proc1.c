@@ -37,8 +37,11 @@ void process_p1() {
     while (!status[P1][TERM]) {
         wait_if_paused(&status[P1][PAUSE], &status[P1][TERM]);
         struct msgbuf m;
-        msgrcv(msg, &m, sizeof(m.data), 0, 0);
-        if (m.type == -1) break;
+        if (msgrcv(msg, &m, sizeof(m.data), 0, 0) == -1) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (m.data == -1) break;
         printf("[P1] Odczytano: %d\n", m.data);
     }
 

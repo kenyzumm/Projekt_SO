@@ -4,11 +4,8 @@
 
 FILE *input_source = NULL;
 
-int pipe_fm;
-pid_t p2_pid;
-
 // --- Prototypy funkcji ---
-void parse_args(int argc, char* argv[]);
+void parse_args(char* path);
 void init_ipc_resources(int* sem_id, struct shared** shm);
 void setup_signal_handling();
 int  get_input_data(char* buffer);
@@ -19,61 +16,65 @@ void loop(int sem_id, struct shared* shm);
 // ============================================================================
 // MAIN
 // ============================================================================
-int main(int argc, char* argv[]) {
-    // 1. Parsowanie argumentów
-    parse_args(argc, argv);
+void process_p3(char* file_path) {
+    printf("[P3] Uruchomiono (PID: %d)\n", getpid());
+
+    // 1. Ustawienie źródła danych (odpowiednik dawnego parsowania argumentów)
+    parse_args(file_path);
 
     int sem_id;
-    struct shared* shm;
+    struct shared* shm_ptr;
     
-    // 2. Inicjalizacja zasobów IPC (Tylko semafory i pamięć!)
-    init_ipc_resources(&sem_id, &shm);
+    // 2. Pobranie zasobów IPC (zmiennych globalnych z main)
+    init_ipc_resources(&sem_id, &shm_ptr);
 
-    // 3. Konfiguracja sygnałów i łącza sterującego
+    // 3. Konfiguracja sygnałów
     setup_signal_handling();
 
     // 4. Główna pętla przetwarzania
-    loop(sem_id, shm);
+    loop(sem_id, shm_ptr);
 
+    // 5. Sprzątanie
     if (input_source && input_source != stdin) {
         fclose(input_source);
     }
 
     printf("[P3] Koniec procesu\n");
-    return 0;
 }
 
 // --- Obsługa argumentów linii poleceń ---
-void parse_args(int argc, char* argv[]) {
+void parse_args(char* path) {
     // Sprawdzamy pierwszy argument (argv[1]) jako ścieżkę do pliku
-    if (argc > 1 && strcmp(argv[1], "NULL") != 0) {
-        input_source = fopen(argv[1], "r");
+    if (path != NULL && strcmp(path, "NULL") != 0) {
+        input_source = fopen(path, "r");
         if (!input_source) {
             perror("[P3] Błąd otwarcia pliku, przełączam na stdin");
             input_source = stdin;
+        } else {
+            printf("[P3] Czytanie z pliku: %s\n", path);
         }
     } else {
         input_source = stdin; // Domyślnie stdin
+        printf("[P3] Czytanie z STDIN\n");
     }
 }
 
 // --- Inicjalizacja IPC ---
-void init_ipc_resources(int* sem_id, struct shared** shm) {
-    *sem_id = get_semaphore();
-    if (*sem_id == -1) { perror("[P3] semget"); exit(1); }
-    
-    *shm = get_shared_memory();
-    if (!*shm) { perror("[P3] shmget"); exit(2); }
+void init_ipc_resources(int* sem_id, struct shared** shm_ptr) {
+    // Korzystamy z globalnych zmiennych 'sem' i 'shm' stworzonych w main.c
+    *sem_id = sem;
+    *shm_ptr = shm;
 
+    if (*sem_id == -1 || *shm_ptr == NULL) {
+        fprintf(stderr, "[P3] Błąd: Zasoby IPC nie zostały poprawnie przekazane z main!\n");
+        exit(1);
+    }
 }
 
 // --- Konfiguracja sygnałów ---
 void setup_signal_handling() {
-    pipes[P1][READ] = pipe_fm;
-    pid[P2] = p2_pid;
-    
-    struct sigaction sa;
-    sa.sa_handler = p3_notify_handler;
+    struct sigaction sa; // Ustawienie handlera dla SIGUSR1
+    sa.sa_handler = p3_notify_handler; 
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0; 
     sigaction(SIGUSR1, &sa, NULL);
@@ -84,7 +85,7 @@ void loop(int sem_id, struct shared* shm) {
     char buffer[BUFFER_SIZE];
 
     while (1) {
-        wait_if_paused(&status[P3][PAUSE], &status[P3][TERM], "P3");
+        wait_if_paused(&status[P3][PAUSE], &status[P3][TERM]);
         
         if (status[P3][TERM]) break;
 
@@ -92,12 +93,14 @@ void loop(int sem_id, struct shared* shm) {
             break; 
         }
 
+        printf("[P3] Odczytano linię: \"%s\" (długość: %ld)\n", buffer, strlen(buffer));
+
         int write_status = write_to_shm(sem_id, shm, buffer);
         
         if (write_status == 1) continue; 
         if (write_status == -1) break;
 
-        sleep(1);
+        //sleep(1);
     }
 
     if (!status[P3][TERM]) {
@@ -107,9 +110,12 @@ void loop(int sem_id, struct shared* shm) {
 
 // --- Wysłanie znacznika końca danych ---
 void send_termination_marker(int sem_id, struct shared* shm) {
-    P_EMPTY;
-    P_MUTEX;
-    shm->buf[0] = 0; // Pusty string jako znacznik końca
+    if (P_EMPTY == -1) return;
+    if (P_MUTEX == -1) {
+        V_EMPTY;
+        return;
+    }
+    shm->buf[0] = '\0'; // Pusty string jako znacznik końca
     shm->len = -1;
     V_MUTEX;
     V_FULL;
@@ -119,13 +125,13 @@ void send_termination_marker(int sem_id, struct shared* shm) {
 // --- Pobieranie danych (opakowanie safe_fgets) ---
 int get_input_data(char* buffer) {
     while (1) {
-        wait_if_paused(&status[P3][PAUSE], &status[P3][TERM], "P3");
+        wait_if_paused(&status[P3][PAUSE], &status[P3][TERM]);
         if (status[P3][TERM]) return 0;
 
         errno = 0;
-        // Czytamy z wybranego źródła (plik lub stdin)
+        // Czytamy ze zmiennej input_source ustawionej w parse_args
         if (fgets(buffer, BUFFER_SIZE, input_source) == NULL) {
-            if (errno == EINTR) continue; 
+            if (errno == EINTR) continue; // Przerwano sygnałem -> Retry
             return 0; 
         }
         
@@ -143,15 +149,15 @@ int write_to_shm(int sem_id, struct shared* shm, const char* buffer) {
     
     // A. Opuszczenie semafora EMPTY (czekamy na miejsce)
     if (P_EMPTY == -1) { 
-         if (errno == EINTR) return 1; // Przerwano sygnałem -> Retry
-         return -1; // Prawdziwy błąd
+         if (errno == EINTR) return 1; // Retry
+         return -1; // Error
     }
     
     // B. Opuszczenie semafora MUTEX (dostęp wyłączny)
     if (P_MUTEX == -1) { 
-         V_EMPTY; // ROLLBACK
-         if (errno == EINTR) return 1; // Retry
-         return -1; // Error
+         V_EMPTY; // Rollback
+         if (errno == EINTR) return 1;
+         return -1;
     }
 
     // C. Zapis danych

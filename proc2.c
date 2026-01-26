@@ -1,52 +1,51 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <semaphore.h>
+/* proc2.c */
+#include "ipc.h"
+#include "signals.h"
 
-void process_p2(int fd_pipe, pid_t p1) {
-
-    struct sigaction sa;
-    sigemptyset(&sa.sa_mask);
-
-
-
-
-    
-
+void process_p2() {
     printf("[P2] PID: %d — gotowy\n", getpid());
+    int sem_id = sem; // Dla makr
 
-    while (running) {
+    // Sygnały
+    struct sigaction sa;
+    sa.sa_handler = p2_notify_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGUSR1, &sa, NULL);
 
-        if (paused)
-            continue;
+    while (1) {
+        wait_if_paused(&status[P2][PAUSE], &status[P2][TERM]);
+        if (status[P2][TERM]) break;
 
-        /* czekamy na dane od P3 */
-        sem_wait(sem_full);
+        // 1. Pobranie danych z SHM
+        if (P_FULL == -1) { if (errno==EINTR) continue; break; }
+        if (P_MUTEX == -1) { V_FULL; if (errno==EINTR) continue; break; }
 
-        /* liczymy znaki */
-        length = strlen(shm_ptr);
-        if (length > 0 && shm_ptr[length - 1] == '\n')
-            length--;
+        int data_len = shm->len; // Odczyt długości lub znacznika końca
 
-        /* wysyłamy wynik do P1 */
-        write(pipe_fd, &length, sizeof(int));
-        kill(p1_pid, SIGUSR1);
+        V_MUTEX;
+        V_EMPTY; // Zwolnienie miejsca dla P3
 
-        /* zwalniamy bufor dla P3 */
-        sem_post(sem_empty);
+        // 2. Obsługa końca
+        if (data_len == -1) {
+            // Prześlij znacznik końca do P1
+            struct msgbuf m;
+            m.type = 1;
+            m.data = -1;
+            msgsnd(msg, &m, sizeof(m.data), 0);
+            break;
+        }
+
+        // 3. Wysłanie wyniku do P1 (przez Kolejkę Komunikatów!)
+        struct msgbuf m;
+        m.type = 1;
+        m.data = data_len; // P2 tylko przekazuje długość
+        
+        if (msgsnd(msg, &m, sizeof(m.data), 0) == -1) {
+            if (errno != EINTR) perror("msgsnd P2");
+        }
+        
+        printf("[P2] Przetworzono długość: %d\n", data_len);
     }
-
-    /* sprzątanie */
-    munmap(shm_ptr, BUFFER_SIZE);
-    close(shm_fd);
-    close(pipe_fd);
-
-    sem_close(sem_full);
-    sem_close(sem_empty);
-
-    printf("[P2] Zakończony poprawnie\n");
+    printf("[P2] Koniec\n");
 }

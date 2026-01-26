@@ -1,7 +1,10 @@
 #include "ipc.h"
 
-// Definicja zmiennej globalnej
-int msq = -1;
+pid_t pid[3];
+int pipes[3][2];
+int msg;
+int sem;
+struct shared* shm;
 
 int sem_op(int sem_id, int sem_num, int op) {
     struct sembuf sb;

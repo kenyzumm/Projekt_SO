@@ -18,17 +18,19 @@ void p1_notify_handler(int sig) {
 void p2_notify_handler(int sig) {
     if (sig == SIGUSR1) {
         int got_signal;
-        read(pipes[P1][READ], &got_signal, sizeof(int));
-        notify(pid[P1]);
-        handle_atomics(got_signal, &status[P1][PAUSE], &status[P1][TERM]);
+        // P2 czyta ze SWOJEJ rury (P2), a nie P1
+        read(pipes[P2][READ], &got_signal, sizeof(int)); 
+        notify(pid[P1]); // Przekazuje dalej do P1 (jeśli tak ma być w łańcuchu)
+        handle_atomics(got_signal, &status[P2][PAUSE], &status[P2][TERM]); // status[P2]!
     }
 }
 void p3_notify_handler(int sig) {
     if (sig == SIGUSR1) {
         int got_signal;
-        read(pipes[P1][READ], &got_signal, sizeof(int));
-        notify(pid[P2]);
-        handle_atomics(got_signal, &status[P1][PAUSE], &status[P1][TERM]);
+        // P3 czyta ze SWOJEJ rury (P3)
+        read(pipes[P3][READ], &got_signal, sizeof(int)); 
+        notify(pid[P2]); // Przekazuje do P2
+        handle_atomics(got_signal, &status[P3][PAUSE], &status[P3][TERM]); // status[P3]!
     }
 }
 

@@ -46,6 +46,9 @@ void p2_out_signal_handler(int sig) { // Kiedy ta funkcja się uruchomi (np. gdy
     else if (sig == SIGCONT) {
         // Jeśli fg -> wyślij prośbę o wznowienie (SIGCONT)
         kill(pp, SIGUSR1);
+    } else if (sig == SIGTERM) {
+        // Jeśli zakończenie -> wyślij SIGTERM do rodzica
+        kill(pp, SIGTERM);
     }
 }
 

@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
 
     // Wznowienie (od P2) 
     signal(SIGUSR1, parent_send_control);
+    signal(SIGTERM, parent_send_control);
 
     // TWORZENIE ZASOBÓW (Raz, na początku)
     key_t key = KEY; // Używamy klucza z ipc.h!

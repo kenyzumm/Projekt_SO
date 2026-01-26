@@ -12,7 +12,7 @@ void p1_notify_handler(int sig) {
     if (sig == SIGUSR1) {
         int got_signal;
         read(pipes[P1][READ], &got_signal, sizeof(int));
-        handle_atomics(sig, &status[P1][PAUSE], &status[P1][TERM]);
+        handle_atomics(got_signal, &status[P1][PAUSE], &status[P1][TERM]);
     }
 }
 void p2_notify_handler(int sig) {
@@ -34,10 +34,21 @@ void p3_notify_handler(int sig) {
     }
 }
 
-void p2_out_signal_handler(int sig) { // nwm
+void p2_out_signal_handler(int sig) { // Kiedy ta funkcja się uruchomi (np. gdy wciśniesz Ctrl+Z w P2), Proces 2 wysyła do MAIN-a sygnał SIGUSR2
+    (void)sig;
     pid_t pp = getppid();
-    if (pp > 1) kill(pp, sig);
+    if (pp <= 1) return;
+
+    if (sig == SIGTSTP) {
+        // Jeśli Ctrl+Z -> wyślij prośbę o pauzę (umowny SIGUSR2)
+        kill(pp, SIGUSR2);
+    } 
+    else if (sig == SIGCONT) {
+        // Jeśli fg -> wyślij prośbę o wznowienie (SIGCONT)
+        kill(pp, SIGUSR1);
+    }
 }
+
 void pm_signal_handler(int sig, siginfo_t* info) {
     if (info) PM_sender_pid = info->si_pid;
     PM_last_signal = sig;
@@ -65,14 +76,44 @@ void notify(pid_t pid) {
         kill(pid, SIGUSR1);
     }
 }
+
 void wait_if_paused(volatile sig_atomic_t* paused, volatile sig_atomic_t* term) {
     while (*paused && !*term) {
         pause();
     }
 }
-void parend_send_control(int sig) {
+
+//Problem "Podwójnego Echa" Gdy wciskasz Ctrl+Z w terminalu, system operacyjny (Linux) wysyła sygnał SIGTSTP do wszystkich procesów naraz (do Maina, P1, P2 i P3).
+
+void parent_send_control(int sig) { //Odbiera sygnał od P2, tłumaczy go na rozkaz dla wszystkich procesów i wysyła go przez rury
+    int command;
+
+    if (sig == SIGUSR2) {
+        command = SIGTSTP;  // Tłumaczymy: "USR2" znaczy "Zrób Pauzę"
+    } else if (sig == SIGUSR1) {
+        command = SIGCONT;  // Tłumaczymy: "USR1" znaczy "Wznów"
+    } else {
+        command = sig;      // Inny sygnał przesyłamy bez zmian
+    }
+
     for (int i=0; i<3; i++) {
-        write(pipes[P3][WRITE], &sig, sizeof(int));
+        write(pipes[i][WRITE], &command, sizeof(int));
     }
     notify(pid[P3]);
+    if (command == SIGTSTP) {
+        printf("\n[Main] P2 zlecił pauzę. Wykonuję.\n");
+        
+        // Techniczny trik, żebyś odzyskał terminal (znak zachęty $)
+        // To nie łamie zasady - to tylko pozwala systemowi "zawiesić" okno,
+        // bo cała logika pauzy w procesach już została uruchomiona przez P2.
+        signal(SIGTSTP, SIG_DFL);// Przywracamy domyślną obsługę Ctrl+Z
+        raise(SIGTSTP); // Wyślij ten sygnał sam do siebie w tym momencie.
+        
+        // --- TU PROGRAM CZEKA NA 'fg' ---
+        
+        signal(SIGTSTP, SIG_IGN); // Po powrocie znowu ignorujemy system
+    }
+    else {
+        printf("\n[Main] P2 zlecił wznowienie. Pracujemy dalej.\n");
+    }
 }

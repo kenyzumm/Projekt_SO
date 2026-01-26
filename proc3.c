@@ -78,6 +78,11 @@ void setup_signal_handling() {
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0; 
     sigaction(SIGUSR1, &sa, NULL);
+
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGCONT, SIG_IGN); 
+    signal(SIGTERM, SIG_IGN); 
+    signal(SIGINT,  SIG_IGN);
 }
 
 // --- Główna pętla przetwarzania ---

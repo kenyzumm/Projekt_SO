@@ -6,12 +6,27 @@ void process_p2() {
     printf("[P2] PID: %d — gotowy\n", getpid());
     int sem_id = sem; // Dla makr
 
-    // Sygnały
+    // 1. Istniejący handler do komunikacji w łańcuszku (P3 -> P2)
     struct sigaction sa;
     sa.sa_handler = p2_notify_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGUSR1, &sa, NULL);
+
+    // 2.Handler do wysyłania sygnałów do rodzica (P2 -> Main)
+    struct sigaction sa_out;
+    sa_out.sa_handler = p2_out_signal_handler; // <--- Ta funkcja z signals.c
+    sigemptyset(&sa_out.sa_mask);
+    sa_out.sa_flags = 0;
+    sigaction(SIGTSTP, &sa_out, NULL);
+
+    // 3. Obsługa wznowienia (fg)
+    struct sigaction sa_cont;
+    sa_cont.sa_handler = p2_out_signal_handler; 
+    sigemptyset(&sa_cont.sa_mask);
+    sa_cont.sa_flags = 0;
+    sigaction(SIGCONT, &sa_cont, NULL);
+    
 
     while (1) {
         wait_if_paused(&status[P2][PAUSE], &status[P2][TERM]);

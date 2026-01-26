@@ -38,7 +38,7 @@ void cleanup_handler(int sig) {
 
 
 int main(int argc, char* argv[]) {
-    // wyłącza buforowanie standardowego wyjścia czyt.
+    // wyłącza buforowanie standardowego wyjścia
     setbuf(stdout, NULL);
     
     // Zeby nie bylo warningow
@@ -48,7 +48,17 @@ int main(int argc, char* argv[]) {
     // Ustawienie handlera sprzątającego na sygnały zakończenia
     signal(SIGINT, cleanup_handler);
 
-    // 1. TWORZENIE ZASOBÓW (Raz, na początku)
+    // Ignoruj bezpośrednie Ctrl+Z
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGCONT, SIG_IGN);
+
+    // Reaguj tylko na info od P2
+    signal(SIGUSR2, parent_send_control);
+
+    // Wznowienie (od P2) 
+    signal(SIGUSR1, parent_send_control);
+
+    // TWORZENIE ZASOBÓW (Raz, na początku)
     key_t key = KEY; // Używamy klucza z ipc.h!
 
     // Semafory: Tworzymy 3 sztuki z prawami dostępu
@@ -71,7 +81,7 @@ int main(int argc, char* argv[]) {
 
     // 2. MENU I PĘTLA GŁÓWNA
     while (1) {
-        char file_path[256]; // POPRAWKA: Rezerwujemy pamięć na stosie!
+        char file_path[256];
         int num;
         
         printf("\nMENU\n1. STDIN\n2. Plik\n3. Wyjscie\nPodaj opcje: ");
@@ -109,7 +119,24 @@ int main(int argc, char* argv[]) {
         }
 
         // Rodzic czeka
-        for (int i=0; i<3; i++) wait(NULL);
+        // Rodzic czeka na 3 procesy (odpornie na sygnały!)
+        int active_children = 3;
+        while (active_children > 0) {
+            pid_t w = wait(NULL);
+            
+            if (w == -1) {
+                // Jeśli wait został przerwany przez sygnał (np. od P2), to nie błąd!
+                // Po prostu wracamy do czekania.
+                if (errno == EINTR) {
+                    continue; 
+                } else {
+                    // Inny błąd (np. brak dzieci)
+                    break;
+                }
+            }
+            // Jeśli wait zwrócił PID (>0), to znaczy, że proces naprawdę się zakończył
+            active_children--;
+        }
         printf("--- Koniec cyklu ---\n");
         for (int i=0; i<3; i++) {
             close(pipes[i][READ]);

@@ -1,0 +1,179 @@
+\documentclass[tikz, border=10pt]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, decorations.pathmorphing, backgrounds, patterns}
+
+\begin{document}
+
+\begin{tikzpicture}[
+    >={Stealth[length=2mm]},
+    node distance=2cm,
+    font=\small,
+    proc/.style={
+        rectangle, 
+        rounded corners=5pt, 
+        draw=black!80, 
+        fill=cyan!15, 
+        minimum width=1.5cm, 
+        minimum height=1cm, 
+        align=center,
+        thick
+    },
+    block/.style={
+        rectangle, 
+        rounded corners=3pt, 
+        draw=black!70, 
+        fill=cyan!10, 
+        align=left,
+        inner sep=5pt
+    },
+    shm/.style={
+        rectangle, 
+        rounded corners=3pt, 
+        draw=black!70, 
+        fill=cyan!10, 
+        align=center,
+        minimum width=4cm,
+        inner sep=5pt
+    },
+    sem/.style={
+        diamond, 
+        draw=black, 
+        fill=yellow!20, 
+        inner sep=1pt,
+        minimum size=6mm
+    },
+    menu/.style={
+        ellipse, 
+        draw=black!70, 
+        fill=white, 
+        align=left,
+        inner sep=2pt,
+        font=\footnotesize
+    },
+    sigbubble/.style={
+        ellipse, 
+        draw=black!70, 
+        fill=orange!10, 
+        align=left,
+        inner sep=5pt,
+        font=\footnotesize
+    },
+    lightning/.style={
+        decoration={zigzag, segment length=4pt, amplitude=1.5pt, pre=lineto, pre length=2pt, post=lineto, post length=2pt},
+        decorate,
+        draw=red!70,
+        thick
+    },
+    dashed_arrow/.style={
+        dashed, 
+        ->
+    },
+    legend_box/.style={
+        rectangle,
+        fill=yellow!5,
+        draw=none,
+        rounded corners=5pt,
+        inner sep=10pt
+    }
+]
+
+% Main Processes
+\node[proc] (Pm) {Pm};
+\node[proc, below=2.5cm of Pm] (P2) {P2};
+\node[proc, left=3.5cm of P2] (P1) {P1};
+\node[proc, right=3.5cm of P2] (P3) {P3};
+
+% Sub-blocks / Producers
+\node[block, below=1.5cm of P1, align=left, width=3cm] (Prod1) {Producent:\\Czyta linie,\\zapisuje do SHM};
+\node[block, below=1.5cm of P3, align=left, width=3cm] (Prod3) {P3 Producent:\\Czyta linie, zapisuje\\do SHM};
+
+% Shared Memory
+\node[shm, below=1.5cm of P2] (SHM) {Pamięć współdzielona :\\Bufor + kod zakończenia};
+
+% Menu and Stdout
+\node[menu, left=0.5cm of P1, anchor=east] (Menu) {Menu:\\1. stdin\\2. plik};
+\node[right=0.5cm of P3] (Stdout) {stdout};
+
+% Signals Bubble
+\node[sigbubble, below right=0.5cm and 0.1cm of Prod3] (SigList) {SIGTSTP\\SIGCONT\\SIGTERM};
+
+% Connections: Signal Lines from Pm (Arcing dashed lines with labels)
+\draw[dashed_arrow, bend right=40] (Pm.west) to node[midway, left, font=\tiny] {SIGUSR1} (P1.north);
+\draw[dashed_arrow, bend left=40] (Pm.east) to node[midway, right, font=\tiny] {SIGUSR1} (P3.north);
+\draw[dashed_arrow] (Pm) -- node[midway, right, font=\tiny] {SIGUSR1} (P2);
+
+% Lightning bolts on signals
+\draw[lightning] ($(Pm.west)!0.5!(P1.north) + (-0.2,0)$) -- ++(0, -0.4);
+\draw[lightning] ($(Pm.east)!0.5!(P3.north) + (0.2,0)$) -- ++(0, -0.4);
+\draw[lightning] ($(Pm.south)!0.5!(P2.north)$) -- ++(0, -0.4);
+
+% Inter-process communication (Solid lines)
+\draw[->] (P1) -- (P2);
+\draw[->] (P2) -- (P1);
+\draw[->] (P2) -- (P3);
+\draw[->] (P3) -- (P2);
+
+% Menu Connection
+\draw[->] (Menu) -- (P1);
+\draw[->] (P3) -- (Stdout);
+\draw[->] (Prod3) to[bend left] (SigList);
+
+% Logic flows to Producers
+\draw[->] (P1) -- (Prod1);
+\draw[lightning] ($(P1.south)!0.5!(Prod1.north)$) -- ++(0, -0.3);
+
+\draw[->] (P3) -- (Prod3);
+\draw[lightning] ($(P3.south)!0.5!(Prod3.north)$) -- ++(0, -0.3);
+
+% Semaphore logic (Diamonds)
+\node[sem, below right=0.2cm and 0.5cm of P1] (SemFull) {};
+\node[sem, below left=0.2cm and 0.5cm of P3] (SemEmpty) {};
+
+% Labels for Semaphores
+\node[font=\tiny, fill=yellow!10, draw, thin, inner sep=1pt, left=0.1cm of SemFull] {SEM\_FULL};
+\node[font=\tiny, fill=yellow!10, draw, thin, inner sep=1pt, right=0.1cm of SemEmpty] {SEM\_EMPTY};
+
+% Connections involving SHM and Semaphores
+\draw[dashed_arrow] (P1) to[bend right] (SHM.west);
+\draw[dashed_arrow] (P3) to[bend left] (SHM.east);
+\draw[dashed] (P2) -- (SemFull);
+\draw[dashed] (P2) -- (SemEmpty);
+\draw[->] (SemFull) -- (SHM);
+\draw[->] (SemEmpty) -- (SHM);
+
+% Data flow from Producers to SHM interactions (Approximated based on image)
+\draw[dashed_arrow] (Prod1.east) -- (SHM.south west);
+\draw[dashed_arrow] (Prod3.west) -- (SHM.south east);
+
+% Semaphore interaction markers near producers (bottom arrows)
+\node[sem] (SemBot1) at ($(SHM.south) + (-1, -0.5)$) {};
+\node[sem] (SemBot2) at ($(SHM.south) + (1, -0.5)$) {};
+\draw[->] (SHM.south) -| (SemBot1);
+\draw[->] (SHM.south) -| (SemBot2);
+\node[font=\tiny, below] at (SemBot1) {SEM\_...};
+\node[font=\tiny, below] at (SemBot2) {EMPTY};
+
+% Legend
+\node[legend_box, below=3.5cm of SHM, anchor=north] (Legend) {
+    \begin{tikzpicture}[node distance=0.3cm, font=\scriptsize]
+        \node (L1a) [sem, scale=0.7] {};
+        \node (L1b) [right=of L1a, anchor=west] {SEM\_FULL / SEM\_EMPTY: Semafory dla dostępu producent-konsument};
+        
+        \node (L2a) [draw, fill=cyan!15, minimum width=0.4cm, minimum height=0.2cm, below=0.4cm of L1a] {};
+        \node (L2b) [right=of L2a, anchor=west] {Bufor + kod zakończenia: Pamięć współdzielona (SHM)};
+        
+        \draw[dashed, ->] ($(L2a.west) + (0,-0.6)$) -- ($(L2a.east) + (0,-0.6)$) node[midway] (L3a) {};
+        \node (L3b) [right=of L3a, anchor=west] {Wynik długość linii: Kolejka komunikatów (MQ)};
+        
+        \draw[dashed] ($(L2a.west) + (0,-1.0)$) -- ($(L2a.east) + (0,-1.0)$) node[midway] (L4a) {};
+        \node (L4b) [right=of L4a, anchor=west] {Pipe: Potoki (pipes) do wysyłania sygnałów};
+    \end{tikzpicture}
+};
+
+\node[font=\large, above=0.2cm of Legend] {Mechanizmy IPC System V};
+
+\end{tikzpicture}
+
+\end{document}

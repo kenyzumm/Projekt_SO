@@ -1,64 +1,75 @@
 #include "ipc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/sem.h>
 
-// Definicja zmiennej globalnej
-int msq = -1;
+// IPC resources
+int sem;
+int shm_id;
+int msg;
+struct shared* shm;
 
-int sem_op(int sem_id, int sem_num, int op) {
-    struct sembuf sb;
-    sb.sem_num = sem_num;
-    sb.sem_op = op;
-    sb.sem_flg = 0;
-    return semop(sem_id, &sb, 1);
-}
-
-void handle_error(const char* msg, int exit_code) {
-    perror(msg);
-    exit(exit_code);
-}
-
-struct shared* get_shared_memory() {
+void get_semaphores() {
     key_t key = KEY;
-    if (key == -1) return NULL;
-
-    int shm_id = shmget(key, 0, 0);
-    if (shm_id == -1) return NULL;
-
-    struct shared *shm = (struct shared*)shmat(shm_id, NULL, 0);
-    if (shm == (void*) - 1) {
-        return NULL;
+    if (key == -1) {
+        perror("ftok");
+        exit(1);
     }
-    return shm;
+    sem = semget(key, 2, 0666 | IPC_CREAT); // 2 semafory (EMPTY, FULL)
+    if (sem == -1) {
+        perror("semget");
+        exit(1);
+    }
 }
 
-int get_semaphore(void) {
+void get_shm() {
     key_t key = KEY;
-    if (key == -1) return -1;
-    return semget(key, 0, 0);
+    if (key == -1) {
+        perror("ftok");
+        exit(1);
+    }
+    shm_id = shmget(key, sizeof(struct shared), 0666 | IPC_CREAT);
+    if (shm_id == -1) {
+        perror("shmget");
+        exit(1);
+    }
+    shm = (struct shared *)shmat(shm_id, NULL, 0);
+    if (shm == (void *)-1) {
+        perror("shmat");
+        exit(1);
+    }
 }
 
-int get_msg_queue(void) {
+void get_msg() {
     key_t key = KEY;
-    if (key == -1) return -1;
-    return msgget(key, 0);
+    if (key == -1) {
+        perror("ftok");
+        exit(1);
+    }
+    msg = msgget(key, 0666 | IPC_CREAT);
+    if (msg == -1) {
+        perror("msgget");
+        exit(1);
+    }
 }
 
-void clean_stdin_buffer(void) {
-    tcflush(STDIN_FILENO, TCIFLUSH);
+// Semaphore P operation (Wait)
+void P(int sem_num) {
+    struct sembuf sb = {sem_num, -1, 0};
+    while (semop(sem, &sb, 1) == -1) {
+        if (errno == EINTR) continue;
+        perror("semop P");
+        exit(1);
+    }
 }
 
-const char *sig_name(int s) {
-    if (s == SIGTSTP) return "SIGTSTP";
-    if (s == SIGCONT) return "SIGCONT";
-    if (s == SIGTERM) return "SIGTERM";
-    if (s == SIGINT)  return "SIGINT";
-    if (s == SIGUSR1) return "SIGUSR1";
-    return "INNY_SYGNAL";
+// Semaphore V operation (Signal)
+void V(int sem_num) {
+    struct sembuf sb = {sem_num, 1, 0};
+    while (semop(sem, &sb, 1) == -1) {
+        if (errno == EINTR) continue;
+        perror("semop V");
+        exit(1);
+    }
 }
-
-void remove_newline(char *s) {
-    if (!s) return;
-    int l = strlen(s);
-    if (l > 0 && s[l-1] == '\n') s[l-1] = '\0';
-    if (l > 1 && s[l-2] == '\r') s[l-2] = '\0';
-}
-

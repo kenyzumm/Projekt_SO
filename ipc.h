@@ -1,60 +1,21 @@
 #ifndef IPC_H
 #define IPC_H
+
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
 #include <sys/types.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <termios.h>
 
 #define BUFFER_SIZE 1024
+#define KEY ftok("/tmp", 'a')
 
-#define PM_P1 0
-#define P1 0
-#define PM_P2 1
-#define P2 1
-#define PM_P3 2
-#define P3 2
-#define READ 0
-#define WRITE 1
-
-#define MUTEX 0
-#define EMPTY 1
-#define FULL 2
-
-#define P_MUTEX     sem_op(sem_id, MUTEX, -1)
-#define V_MUTEX     sem_op(sem_id, MUTEX, 1)
-#define P_EMPTY     sem_op(sem_id, EMPTY, -1)
-#define V_EMPTY     sem_op(sem_id, EMPTY, 1)
-#define P_FULL      sem_op(sem_id, FULL, -1)
-#define V_FULL      sem_op(sem_id, FULL, 1)
-
-#define KEY ftok("/tmp", 'A')
-
-#ifdef __linux__
-union semun {
-    int              val;
-    struct semid_ds *buf;
-    unsigned short  *array;
-    struct seminfo  *__buf;
-};
-#endif
-
-extern pid_t pid[3];
-extern int pipes[3][2];
-extern int msg;
-extern int sem;
-extern struct shared* shm;
+// Semaphores
+#define SEM_EMPTY 0
+#define SEM_FULL 1
 
 struct shared {
     char buf[BUFFER_SIZE];
-    int len;
+    int ec; // Exit code/status: 0 = OK, -1 = END
 };
 
 struct msgbuf {
@@ -62,18 +23,25 @@ struct msgbuf {
     int data;
 };
 
-int sem_op(int sem_id, int sem_num, int op);
-
-void handle_error(const char* msg, int exit_code);
-
-struct shared* get_shared_memory(void);
-int get_semaphore(void);
-int get_msg_queue(void);
-
-const char *sig_name(int s);
-
-void clean_stdin_buffer(void);
-
-void remove_newline(char *s);
-
+#ifdef __linux__
+union semun {
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
 #endif
+
+// IPC functions
+void get_semaphores();
+void get_shm();
+void get_msg();
+void P(int sem_num);
+void V(int sem_num);
+
+// IPC resources (extern for access from other modules)
+extern int sem;
+extern int shm_id;
+extern int msg;
+extern struct shared* shm;
+
+#endif // IPC_H

@@ -115,6 +115,13 @@ void parent_send_control(int sig) { //Odbiera sygnał od P2, tłumaczy go na roz
         // --- TU PROGRAM CZEKA NA 'fg' ---
         
         signal(SIGTSTP, SIG_IGN); // Po powrocie znowu ignorujemy system
+
+        int resume_cmd = SIGCONT;
+        for (int i = 0; i < 3; i++) {
+            write(pipes[i][WRITE], &resume_cmd, sizeof(int));
+        }
+        notify(pid[P3]); // Pchnięcie łańcucha powiadomień USR1
+        printf("[Main] System wznowiony automatycznie po powrocie do fg.\n");
     }
     else {
         printf("\n[Main] P2 zlecił wznowienie. Pracujemy dalej.\n");

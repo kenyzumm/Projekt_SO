@@ -4,7 +4,6 @@
 #include "signals.h"
 
 
-
 /*
  * Główna funkcja procesu P1 - odbiera dane z pipe'a od procesu P2
  * i wyświetla je na standardowe wyjście.

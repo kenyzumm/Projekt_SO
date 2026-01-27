@@ -27,14 +27,6 @@ void process_p2() {
     sa_cont.sa_flags = 0;
     sigaction(SIGCONT, &sa_cont, NULL);
 
-    struct sigaction sa_term;
-    sa_term.sa_handler = p2_out_signal_handler; 
-    sigemptyset(&sa_term.sa_mask);
-    sa_term.sa_flags = 0;
-    sigaction(SIGTERM, &sa_term, NULL);
-
-    
-
     while (1) {
         wait_if_paused(&status[P2][PAUSE], &status[P2][TERM]);
         if (status[P2][TERM]) break;
@@ -48,7 +40,7 @@ void process_p2() {
         V_MUTEX;
         V_EMPTY; // Zwolnienie miejsca dla P3
 
-        // 2. Obsługa końca
+        // 2. Obsługa końca danych
         if (data_len == -1) {
             // Prześlij znacznik końca do P1
             struct msgbuf m;

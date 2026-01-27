@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
 
         if (num == 2) {
             printf("Podaj plik: ");
-            scanf("%255s", file_path); // Bezpieczny scanf
+            scanf("%255s", file_path);
             path_arg = file_path;
         } else if (num == 3) {
             break;
@@ -109,8 +109,6 @@ int main(int argc, char* argv[]) {
         for (int i=0; i<3; i++) {
             pid[i] = fork();
             if (pid[i] == 0) {
-                // Kod procesu potomnego
-                // Zamykamy nieużywane końce rur (opcjonalne, ale dobra praktyka)
                 if (i == P1) process_p1();
                 if (i == P2) process_p2();
                 if (i == P3) process_p3(path_arg);

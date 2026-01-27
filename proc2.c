@@ -33,8 +33,6 @@ void process_p2() {
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
 
-    
-
     while (1) {
         wait_if_paused(&status[P2][PAUSE], &status[P2][TERM]);
         if (status[P2][TERM]) break;
